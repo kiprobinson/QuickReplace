@@ -4,10 +4,10 @@ file in a browser from your local machine and run it directly.
 
 @author Kip Robinson, https://github.com/kiprobinson
 -->
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta charset="utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <title>QuickReplace</title>
 <link rel="icon" type="image/vnd.microsoft.icon" href="http://dl.dropbox.com/u/5738517/favicon-qr.ico" /> 
@@ -242,11 +242,9 @@ $(function() {
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
              +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="prepend_' + _G.maxFilterId + '">Prepend:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" /></td>'
-             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" placeholder="\\n,\\t allowed" /></td>'
              +   '<td><label for="append_' + _G.maxFilterId + '">Append:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" /></td>'
-             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" placeholder="\\n,\\t allowed" /></td>'
              +   '<td colspan="3">'
              +     '<label for="ignoreBlanks_' + _G.maxFilterId + '">Ignore blank lines:</label> '
              +     '<input type="checkbox" id="ignoreBlanks_' + _G.maxFilterId + '" ' + (args.ignoreBlanks?'checked="checked"':'') + ' />'
@@ -265,11 +263,9 @@ $(function() {
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
              +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="find_' + _G.maxFilterId + '">Simple find:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" /></td>'
-             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" placeholder="\\n,\\t allowed" /></td>'
              +   '<td><label for="replace_' + _G.maxFilterId + '">Simple replace:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" /></td>'
-             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" placeholder="\\n,\\t allowed" /></td>'
              +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
              +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
              +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
@@ -287,11 +283,9 @@ $(function() {
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
              +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="regex_' + _G.maxFilterId + '">Regex find:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
-             +   '<td class="example">No start/end markers</td>'
+             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="No start/end markers" /></td>'
              +   '<td><label for="replacement_' + _G.maxFilterId + '">Regex replace:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" /></td>'
-             +   '<td class="example">backrefs: $1 $2 etc</td>'
+             +   '<td><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" placeholder="backrefs: $1 $2 etc" /></td>'
              +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
              +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
              +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
@@ -309,9 +303,8 @@ $(function() {
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
              +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="grep_' + _G.maxFilterId + '">Regex grep:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
-             +   '<td class="example">No start/end markers</td>'
-             +   '<td colspan="6">'
+             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="No start/end markers" /></td>'
+             +   '<td colspan="5">'
              +     '<label for="caseSensitive_' + _G.maxFilterId + '">Case-sensitive:</label> '
              +     '<input type="checkbox" id="caseSensitive_' + _G.maxFilterId + '" ' + (args.caseSensitive?'checked="checked"':'') + ' /> | '
              +     '<label for="invert_' + _G.maxFilterId + '">Invert:</label> '
@@ -345,7 +338,7 @@ $(function() {
         filter.enabled = $('#enabled_' + id)[0].checked;
         filter.prepend = unescapeJS($('#prepend_' + id).val());
         filter.append = unescapeJS($('#append_' + id).val());
-				filter.ignoreBlanks = $('#ignoreBlanks_' + id)[0].checked;
+        filter.ignoreBlanks = $('#ignoreBlanks_' + id)[0].checked;
       }
       else if($(this).hasClass('simple-filter')) {
         filter.type = _G.SIMPLE;
