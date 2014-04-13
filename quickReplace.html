@@ -13,7 +13,7 @@ file in a browser from your local machine and run it directly.
 <link rel="icon" type="image/vnd.microsoft.icon" href="http://dl.dropbox.com/u/5738517/favicon-qr.ico" /> 
 <link rel="shortcut icon" href="http://dl.dropbox.com/u/5738517/favicon-qr.ico"/> 
 <style type="text/css">
-/* Copied from: http://yui.yahooapis.com/3.2.0/build/cssreset/reset-min.css */
+/* Copied from: http://yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css */
 html{color:#000;background:#FFF;}body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,code,form,fieldset,legend,input,textarea,p,blockquote,th,td{margin:0;padding:0;}table{border-collapse:collapse;border-spacing:0;}fieldset,img{border:0;}address,caption,cite,code,dfn,em,strong,th,var{font-style:normal;font-weight:normal;}li{list-style:none;}caption,th{text-align:left;}h1,h2,h3,h4,h5,h6{font-size:100%;font-weight:normal;}q:before,q:after{content:'';}abbr,acronym{border:0;font-variant:normal;}sup{vertical-align:text-top;}sub{vertical-align:text-bottom;}input,textarea,select{font-family:inherit;font-size:inherit;font-weight:inherit;}input,textarea,select{*font-size:100%;}legend{color:#000;}
 /* --- end Yahoo reset script --- */
 
@@ -99,6 +99,7 @@ $(function() {
     PREPEND: 0,
     SIMPLE: 1,
     REGEX: 2,
+    GREP: 3,
     maxFilterId: 0,
     filters: null
   };
@@ -120,6 +121,7 @@ $(function() {
     addFilter(_G.PREPEND, {}, true);
     addFilter(_G.SIMPLE, {}, true);
     addFilter(_G.REGEX, {}, true);
+    //addFilter(_G.GREP, {}, true);
   }
   
   $('#input').focus();
@@ -137,8 +139,10 @@ $(function() {
   $('#addFilterPrepend').click(function() { return addFilter(_G.PREPEND); });
   $('#addFilterSimple') .click(function() { return addFilter(_G.SIMPLE ); });
   $('#addFilterRegex')  .click(function() { return addFilter(_G.REGEX  ); });
+  $('#addFilterGrep')   .click(function() { return addFilter(_G.GREP   ); });
   
   $('#filters input[type=text]').live('keyup', updateFilters);
+  $('#filters input[type=checkbox]').live('change', updateFilters);
   $('#input').keyup(applyFilters);
   $('.remove-filter').live('click', function() {
     $(this).closest('tr').remove();
@@ -240,6 +244,27 @@ $(function() {
              +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
              + '</tr>';
     }
+    else if (type == _G.GREP) {
+      if (typeof args.regex == 'undefined')
+        args.regex = '';
+      if (typeof args.caseSensitive == 'undefined')
+        args.caseSensitive = false;
+      if (typeof args.invert == 'undefined')
+        args.invert = false;
+      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter grep-filter">'
+             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><label for="grep_' + _G.maxFilterId + '">Regex grep:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
+             +   '<td class="example">No start/end markers</td>'
+             +   '<td colspan="6">'
+             +     '<label for="caseSensitive_' + _G.maxFilterId + '">Case-sensitive:</label> '
+             +     '<input type="checkbox" id="caseSensitive_' + _G.maxFilterId + '" ' + (args.caseSensitive?'checked="checked"':'') + ' /> | '
+             +     '<label for="invert_' + _G.maxFilterId + '">Invert:</label> '
+             +     '<input type="checkbox" id="invert_' + _G.maxFilterId + '" ' + (args.invert?'checked="checked"':'') + ' />'
+             +   '</td>'
+             + '</tr>';
+    }
     
     if(filter) {
       $('#filters').append(filter);
@@ -275,7 +300,13 @@ $(function() {
         filter.type = _G.REGEX;
         filter.regex = $('#regex_' + id).val();
         filter.replacement = unescapeJS($('#replacement_' + id).val());
-        filter.options = $('#options_' + id).val();          
+        filter.options = $('#options_' + id).val();
+      }
+      else if($(this).hasClass('grep-filter')) {
+        filter.type = _G.GREP;
+        filter.regex = $('#regex_' + id).val();
+        filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
+        filter.invert = $('#invert_' + id)[0].checked;
       }
       if(typeof filter.type != 'undefined')
         _G.filters.push(filter);
@@ -308,6 +339,18 @@ $(function() {
         {
           if(filter.regex.length > 0)
             text = text.replace(new RegExp(filter.regex, filter.options), filter.replacement);
+        }
+        else if(filter.type == _G.GREP)
+        {
+          if(filter.regex.length > 0) {
+            var regex = new RegExp(filter.regex, filter.caseSensitive ? '' : 'i');
+            var lines = text.split('\n');
+            text = '';
+            for(var i = 0; i < lines.length; i++) {
+              if(regex.test(lines[i]) != filter.invert)
+                text += (text.length > 0 ? '\n' : '') + lines[i];
+            }
+          }
         }
       });
       $('#output').val(text);
@@ -432,6 +475,7 @@ $(function() {
   <input type="submit" id="addFilterPrepend" value="Prepend" />
   <input type="submit" id="addFilterSimple" value="Simple" />
   <input type="submit" id="addFilterRegex" value="Regex" />
+  <input type="submit" id="addFilterGrep" value="Grep" />
   | <a href="#" id="permalink">Permalink</a>
 </div>
 <textarea id="input" wrap="off"></textarea>
