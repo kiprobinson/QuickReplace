@@ -235,6 +235,8 @@ $(function() {
         args.prepend = '';
       if (typeof args.append == 'undefined')
         args.append = '';
+      if (typeof args.ignoreBlanks == 'undefined')
+        args.ignoreBlanks = false;
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter prepend-filter">'
              +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
@@ -245,7 +247,10 @@ $(function() {
              +   '<td><label for="append_' + _G.maxFilterId + '">Append:</label></td>'
              +   '<td><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" /></td>'
              +   '<td class="example">\\n,\\t allowed</td>'
-             +   '<td colspan="3"></td>'
+             +   '<td colspan="3">'
+             +     '<label for="ignoreBlanks_' + _G.maxFilterId + '">Ignore blank lines:</label> '
+             +     '<input type="checkbox" id="ignoreBlanks_' + _G.maxFilterId + '" ' + (args.ignoreBlanks?'checked="checked"':'') + ' />'
+						 +   '</td>'
              + '</tr>';
     }
     else if (type == _G.SIMPLE) {
@@ -340,6 +345,7 @@ $(function() {
         filter.enabled = $('#enabled_' + id)[0].checked;
         filter.prepend = unescapeJS($('#prepend_' + id).val());
         filter.append = unescapeJS($('#append_' + id).val());
+				filter.ignoreBlanks = $('#ignoreBlanks_' + id)[0].checked;
       }
       else if($(this).hasClass('simple-filter')) {
         filter.type = _G.SIMPLE;
@@ -391,7 +397,12 @@ $(function() {
           if(filter.type == _G.PREPEND)
           {
             if(filter.prepend.length > 0 || filter.append.length > 0)
-              text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
+            {
+              //text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
+              var regex = new RegExp(filter.ignoreBlanks ? '^(.+)$' : '^(.*)$', 'gm');
+              var replace = filter.prepend.replace('$', '$$') + '$1' + filter.append.replace('$', '$$');
+              text = text.replace(regex, replace);
+            }
           }
           else if(filter.type == _G.SIMPLE)
           {
@@ -470,9 +481,6 @@ $(function() {
    * Returns a properly escaped/encoded permalink to the current filters.
    */
   function getPermalink() {
-    console.log(_G.filters);
-    console.log(JSON.stringify(_G.filters));
-    console.log(encodeURIComponent(JSON.stringify(_G.filters)));
     return '?filters=' + encodeURIComponent(JSON.stringify(_G.filters));
   }
   
