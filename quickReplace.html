@@ -1,0 +1,264 @@
+<!--
+This app is completely self-contained. You don't even need a web server, you can just open the html
+file in a browser from your local machine and run it directly.
+
+@author Kip Robinson, https://github.com/kiprobinson
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<title>QuickReplace</title>
+<link rel="icon" type="image/vnd.microsoft.icon" href="http://dl.dropbox.com/u/5738517/favicon-qr.ico" /> 
+<link rel="shortcut icon" href="http://dl.dropbox.com/u/5738517/favicon-qr.ico"/> 
+<style type="text/css">
+/* Copied from: http://yui.yahooapis.com/3.2.0/build/cssreset/reset-min.css */
+html{color:#000;background:#FFF;}body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,code,form,fieldset,legend,input,textarea,p,blockquote,th,td{margin:0;padding:0;}table{border-collapse:collapse;border-spacing:0;}fieldset,img{border:0;}address,caption,cite,code,dfn,em,strong,th,var{font-style:normal;font-weight:normal;}li{list-style:none;}caption,th{text-align:left;}h1,h2,h3,h4,h5,h6{font-size:100%;font-weight:normal;}q:before,q:after{content:'';}abbr,acronym{border:0;font-variant:normal;}sup{vertical-align:text-top;}sub{vertical-align:text-bottom;}input,textarea,select{font-family:inherit;font-size:inherit;font-weight:inherit;}input,textarea,select{*font-size:100%;}legend{color:#000;}
+/* --- end Yahoo reset script --- */
+
+html {
+  background-color: #cdc;
+}
+body {
+  font-family: Tahoma,Arial,sans-serif;
+  font-size: 0.8em;
+  padding: 1px;
+  padding-right: 5px;
+}
+input,textarea {
+  /* Font list from StackOverflow.com ... */
+  font-family: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,serif;
+  font-size: 0.8em;
+  border: 1px solid black;
+  margin: 1px;
+}
+strong {
+  color: #666;
+  font-weight: bold;
+}
+#input, #output {
+  width: 100%;
+  height: 250px;
+  border: 1px solid black;
+}
+#output {
+  color: #888;
+}
+textarea:focus, input[type=text]:focus {
+  background-color: #ffb;
+}
+.example {
+  font-size: 0.75em;
+  color: #888;
+}
+td {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+a, a:visited {
+  color: blue;
+}
+</style>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">
+$(function() {
+  resetPage();
+  resizeInputs();
+  $('#input').focus();
+  $('body').css('overflow', 'hidden');
+  
+  $(window).resize(resizeInputs);
+  
+  $('input,#input').keyup(function(){
+    updatePage();
+  });
+  
+  //Select all text in output when it gets focus
+  $('#output').focus(function(){
+    $(this).select();
+    //workaround required b/c of this webkit bug: http://code.google.com/p/chromium/issues/detail?id=4505
+    if($.browser.webkit) {
+      $(this).mouseup(function(e) {
+        e.preventDefault();
+        $(this).unbind('mouseup');
+      });
+    }
+  });
+  
+  $('#copyUp').click(function(){
+    $('#input').val($('#output').val());
+    updatePage();
+  });
+  
+  $('#reset').click(resetPage);
+  
+  /**
+   * Reset the page - set default values for inputs based on url parameters (if given).
+   */
+  function resetPage() {
+    $('input[type=text]').each(function() {
+      var def = $(this).data('default');
+      if(def == null) {
+        var param = getUrlParam(this.id);
+        if(typeof param != 'undefined')
+          def = param;
+        else
+          def = $(this).val();
+        $(this).data('default', def);
+      }
+      $(this).val(def);
+    });
+    updatePage();
+    return false;
+  }
+  
+  /**
+   * Update the page - set permalink URL and run filters.
+   */
+  function updatePage()
+  {
+    var text = $('#input').val();
+    var prepend = unescapeJS($('#prepend').val());
+    var append = unescapeJS($('#append').val());
+    var find = unescapeJS($('#find').val());
+    var replace = unescapeJS($('#replace').val());
+    var options1 = $('#options1').val();
+    var regex = $('#regex').val();
+    var replacement = unescapeJS($('#replacement').val());
+    var options2 = $('#options2').val();
+    
+    var permalink = '';
+    $('input[type=text]').each(function() {
+      permalink += (permalink == '' ? '?' : '&') + this.id + '=' + encodeURIComponent($(this).val());
+    });
+    $('#permalink').attr('href', permalink);
+    
+    try
+    {
+      if(prepend.length > 0 || append.length > 0)
+        text = prepend + text.replace(/\n/g, append+"\n"+prepend) + append;
+      
+      if(find.length > 0)
+        text = text.replace(new RegExp(regexQuote(find), options1), replace);
+      
+      if(regex.length > 0)
+        text = text.replace(new RegExp(regex, options2), replacement);
+      
+      $('#output').val(text);
+    }
+    catch(err)
+    {
+      $('#output').val("ERROR:\n" + err);
+    }
+  }
+  
+  function resizeInputs() {
+    var minHeight = 50;
+    var newHeight = $(window).height() - ($('body').height() - $('#input').height() - $('#output').height());
+    newHeight = Math.max(Math.floor(newHeight/2), minHeight);
+    $('textarea').height(newHeight);
+  }
+  
+  //---------------------------------------------------------------------------
+  // Helper functions
+  //---------------------------------------------------------------------------
+  
+  /**
+   * Escapes any characters which are special characters in a regular expression.
+   */
+  function regexQuote(str)
+  {
+    return str.replace(/([\.\\\+\*\?\[\^\]\$\(\)\{\}\=\!\<\>\|\:\-])/g, '\\$1');
+  }
+  
+  /**
+   * Converts \n to newline, \t to tab, and \\ to \ in given string. All other
+   * backslashes are left as-is.
+   */
+  function unescapeJS(str)
+  {
+    if(!(str.length > 0 && str.search(/\\[\\nt]/) >= 0))
+      return str;
+    
+    var ret = '';
+    var bsFound = false;
+    for(var i = 0; i < str.length; i++)
+    {
+      var ch = str.charAt(i);
+      if(bsFound)
+      {
+        if(ch == 'n')
+          ret += "\n";
+        else if (ch == 't')
+          ret += "\t";
+        else if (ch == "\\")
+          ret += "\\";
+        else
+          ret += "\\" + ch;
+        
+        bsFound = false;
+      }
+      else
+      {
+        if(ch == "\\" && i != str.length - 1)
+          bsFound = true;
+        else
+          ret += ch;
+      }
+    }
+    
+    return ret;
+  }
+  
+  /**
+   * From: http://www.onlineaspect.com/2009/06/10/reading-get-variables-with-javascript/
+   */
+  function getUrlParam(q,s) {
+    s = s ? s : window.location.search;
+    var re = new RegExp('&'+q+'(?:=([^&]*))?(?=&|$)','i');
+    s = s.replace(/^\?/,'&').match(re);
+    if(s) 
+      return typeof s[1] != 'undefined' ? decodeURIComponent(s[1]) : '';
+  }
+  
+});
+</script>
+</head>
+<body>
+<table>
+  <tr>
+    <td><label for="prepend">Prepend:</label></td>
+    <td><input type="text" id="prepend" /></td>
+    <td class="example">\n,\t allowed</td>
+    <td><label for="append">Append:</label></td>
+    <td><input type="text" id="append" /></td>
+    <td class="example">\n,\t allowed</td>
+    <td colspan="3"><a href="#" id="permalink">Permalink</a> | <a href="#" id="reset">Reset</a></td>
+  </tr>
+  <tr>
+    <td><label for="find">Simple find:</label></td>
+    <td><input type="text" id="find" /></td>
+    <td class="example">\n,\t allowed</td>
+    <td><label for="replace">Simple replace:</label></td>
+    <td><input type="text" id="replace" /></td>
+    <td class="example">\n,\t allowed</td>
+    <td><label for="options1">Options:</label></td>
+    <td><input type="text" id="options1" value="gim" /></td>
+    <td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>
+  </tr>
+  <tr>
+    <td><label for="regex">Regex find:</label></td>
+    <td><input type="text" id="regex" /></td>
+    <td class="example">No start/end markers</td>
+    <td><label for="replacement">Regex replace:</label></td>
+    <td><input type="text" id="replacement" /></td>
+    <td class="example">backrefs: $1 $2 etc</td>
+    <td><label for="options2">Options:</label></td>
+    <td><input type="text" id="options2" value="gim" /></td>
+    <td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>
+  </tr>
+</table>
+<textarea id="input" wrap="off"></textarea><input type="submit" id="copyUp" value="&uarr; Move &uarr;" /><textarea id="output" readonly="readonly" wrap="off"></textarea>
+</body>
+</html>
