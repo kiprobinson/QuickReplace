@@ -76,6 +76,9 @@ textarea:focus, input[type=text]:focus {
 .handle {
   cursor: move;
 }
+.disabled {
+  opacity: 0.5;
+}
 td {
   padding-left: 2px;
   padding-right: 2px;
@@ -101,16 +104,22 @@ $(function() {
     REGEX: 2,
     GREP: 3,
     maxFilterId: 0,
-    filters: null
+    filters: null,
+    idleTimer: null
   };
   
   //---------------------------------------------------------------------------
   // Initialization
   //---------------------------------------------------------------------------
+  $('#input').focus();
+  $('body').css('overflow', 'hidden');
+  $('#filters').sortable({revert:100, helper:'clone', opacity: 0.75, handle: '.handle', axis: 'y', stop: updateFilters});
+  
   try {
     _G.filters = $.parseJSON(getUrlParam('filters'));
   } catch (e) {}
   
+  /*
   if($.isArray(_G.filters)) {
     $.each(_G.filters, function() {
       addFilter(this.type, this, true);
@@ -123,13 +132,19 @@ $(function() {
     addFilter(_G.REGEX, {}, true);
     //addFilter(_G.GREP, {}, true);
   }
+  */
   
-  $('#input').focus();
-  $('body').css('overflow', 'hidden');
-  $('#filters').sortable({revert:100, helper:'clone', opacity: 0.75, handle: '.handle', axis: 'y', stop: updateFilters});
+  if(!$.isArray(_G.filters)) {
+    _G.filters = [
+      {type: _G.PREPEND},
+      {type: _G.SIMPLE},
+      {type: _G.REGEX}
+      //,{_G.GREP, {}};
+    ]
+  }
   
-  updateFilters();
-  resizeInputs();
+  
+  initFilters(_G.filters);
   
   //---------------------------------------------------------------------------
   // Listeners
@@ -168,10 +183,37 @@ $(function() {
     applyFilters();
   });
   
+  //Utilize history API if available
+  if(supportsHistoryApi()){
+    $(window).bind('popstate', function(e) {
+      var state = e.originalEvent.state;
+      if(state != null)
+        initFilters(e.originalEvent.state);
+    });
+    
+    //Add Ctrl+S event mapping to save to address bar
+    $(document).keydown(function(e) {
+      if(e.ctrlKey && !e.altKey && (e.which == 83)) {
+        e.preventDefault();
+        saveState();
+      }
+    });
+  }
+  
   
   //---------------------------------------------------------------------------
   // Core functions
   //---------------------------------------------------------------------------
+  
+  
+  function initFilters(filters) {
+    $('#filters').empty();
+    $.each(filters, function() {
+      addFilter(this.type, this, true);
+    });
+    updateFilters();
+    resizeInputs();
+  }
   
   /**
    * Appends a filter to the filter controls.
@@ -185,6 +227,9 @@ $(function() {
     if(!$.isPlainObject(args))
       args = {};
     
+    if(typeof args.enabled == 'undefined')
+      args.enabled = true;
+    
     if(type == _G.PREPEND) {
       if (typeof args.prepend == 'undefined')
         args.prepend = '';
@@ -193,6 +238,7 @@ $(function() {
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter prepend-filter">'
              +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="prepend_' + _G.maxFilterId + '">Prepend:</label></td>'
              +   '<td><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" /></td>'
              +   '<td class="example">\\n,\\t allowed</td>'
@@ -212,6 +258,7 @@ $(function() {
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter simple-filter">'
              +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="find_' + _G.maxFilterId + '">Simple find:</label></td>'
              +   '<td><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" /></td>'
              +   '<td class="example">\\n,\\t allowed</td>'
@@ -233,6 +280,7 @@ $(function() {
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter regex-filter">'
              +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="regex_' + _G.maxFilterId + '">Regex find:</label></td>'
              +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
              +   '<td class="example">No start/end markers</td>'
@@ -254,6 +302,7 @@ $(function() {
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter grep-filter">'
              +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
              +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
              +   '<td><label for="grep_' + _G.maxFilterId + '">Regex grep:</label></td>'
              +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
              +   '<td class="example">No start/end markers</td>'
@@ -281,37 +330,49 @@ $(function() {
    */
   function updateFilters()
   {
+    var oldPermalink = getPermalink();
     _G.filters = [];
     $('#filters>.filter').each(function() {
       var id = this.id.substr(this.id.lastIndexOf('_') + 1);
       var filter = {id: id};
       if($(this).hasClass('prepend-filter')) {
         filter.type = _G.PREPEND;
+        filter.enabled = $('#enabled_' + id)[0].checked;
         filter.prepend = unescapeJS($('#prepend_' + id).val());
         filter.append = unescapeJS($('#append_' + id).val());
       }
       else if($(this).hasClass('simple-filter')) {
         filter.type = _G.SIMPLE;
+        filter.enabled = $('#enabled_' + id)[0].checked;
         filter.find = unescapeJS($('#find_' + id).val());
         filter.replace = unescapeJS($('#replace_' + id).val());
         filter.options = $('#options_' + id).val();
       }
       else if($(this).hasClass('regex-filter')) {
         filter.type = _G.REGEX;
+        filter.enabled = $('#enabled_' + id)[0].checked;
         filter.regex = $('#regex_' + id).val();
         filter.replacement = unescapeJS($('#replacement_' + id).val());
         filter.options = $('#options_' + id).val();
       }
       else if($(this).hasClass('grep-filter')) {
         filter.type = _G.GREP;
+        filter.enabled = $('#enabled_' + id)[0].checked;
         filter.regex = $('#regex_' + id).val();
         filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
         filter.invert = $('#invert_' + id)[0].checked;
       }
-      if(typeof filter.type != 'undefined')
+      if(typeof filter.type != 'undefined') {
         _G.filters.push(filter);
+        $('#filter_' + id).toggleClass('disabled', !filter.enabled);
+      }
     });
-    $('#permalink').attr('href', '?filters=' + encodeURIComponent(JSON.stringify(_G.filters)));
+    
+    var newPermalink = getPermalink();
+    if(oldPermalink != newPermalink) {
+      $('#permalink').attr('href', newPermalink);
+      setIdleTimer();
+    }
     applyFilters();
   }
   
@@ -325,30 +386,33 @@ $(function() {
     {
       $.each(_G.filters, function(i, filter)
       {
-        if(filter.type == _G.PREPEND)
+        if(filter.enabled)
         {
-          if(filter.prepend.length > 0 || filter.append.length > 0)
-            text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
-        }
-        else if(filter.type == _G.SIMPLE)
-        {
-          if(filter.find.length > 0)
-            text = text.replace(new RegExp(regexQuote(filter.find), filter.options), filter.replace);
-        }
-        else if(filter.type == _G.REGEX)
-        {
-          if(filter.regex.length > 0)
-            text = text.replace(new RegExp(filter.regex, filter.options), filter.replacement);
-        }
-        else if(filter.type == _G.GREP)
-        {
-          if(filter.regex.length > 0) {
-            var regex = new RegExp(filter.regex, filter.caseSensitive ? '' : 'i');
-            var lines = text.split('\n');
-            text = '';
-            for(var i = 0; i < lines.length; i++) {
-              if(regex.test(lines[i]) != filter.invert)
-                text += (text.length > 0 ? '\n' : '') + lines[i];
+          if(filter.type == _G.PREPEND)
+          {
+            if(filter.prepend.length > 0 || filter.append.length > 0)
+              text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
+          }
+          else if(filter.type == _G.SIMPLE)
+          {
+            if(filter.find.length > 0)
+              text = text.replace(new RegExp(regexQuote(filter.find), filter.options), filter.replace);
+          }
+          else if(filter.type == _G.REGEX)
+          {
+            if(filter.regex.length > 0)
+              text = text.replace(new RegExp(filter.regex, filter.options), filter.replacement);
+          }
+          else if(filter.type == _G.GREP)
+          {
+            if(filter.regex.length > 0) {
+              var regex = new RegExp(filter.regex, filter.caseSensitive ? '' : 'i');
+              var lines = text.split('\n');
+              text = '';
+              for(var i = 0; i < lines.length; i++) {
+                if(regex.test(lines[i]) != filter.invert)
+                  text += (text.length > 0 ? '\n' : '') + lines[i];
+              }
             }
           }
         }
@@ -376,6 +440,40 @@ $(function() {
     var newFlexWidth = $('body').width() - $('#filters').width() + 2 * Number($('.flex-input:first').width());
     newFlexWidth = Math.max(Math.floor(newFlexWidth/2), minFlexWidth);
     $('.flex-input').width(newFlexWidth);
+  }
+  
+  
+  function setIdleTimer() {
+    if(_G.idleTimer !== null)
+      clearTimeout(_G.idleTimer);
+    _G.idleTimer = setTimeout(function() {
+      saveState();
+    }, 10000);
+  }
+  
+  
+  /**
+   * Saves current filter state to the browser's address bar, if supported.
+   */
+  function saveState() {
+    if(supportsHistoryApi()) {
+      history.pushState(_G.filters, 'QuickReplace', getPermalink());
+      if(_G.idleTimer !== null) {
+        clearTimeout(_G.idleTimer);
+        _G.idleTimer = null;
+      }
+    }
+  }
+  
+  
+  /**
+   * Returns a properly escaped/encoded permalink to the current filters.
+   */
+  function getPermalink() {
+    console.log(_G.filters);
+    console.log(JSON.stringify(_G.filters));
+    console.log(encodeURIComponent(JSON.stringify(_G.filters)));
+    return '?filters=' + encodeURIComponent(JSON.stringify(_G.filters));
   }
   
   //---------------------------------------------------------------------------
@@ -460,6 +558,12 @@ $(function() {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+  
+  function supportsHistoryApi() {
+    //disabling this for now... seems to be buggy with backslashes in the url...
+    return false;
+    //return !!(window.history && history.pushState);
   }
 });
 //]]> 
