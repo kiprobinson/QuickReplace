@@ -26,12 +26,17 @@ body {
   padding: 1px;
   padding-right: 5px;
 }
-input,textarea {
+textarea,input[type=text] {
   /* Font list from StackOverflow.com ... */
   font-family: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,serif;
   font-size: 0.8em;
   border: 1px solid black;
   margin: 1px;
+  resize: none;
+}
+input {
+  padding-left: 2px;
+  padding-right: 2px;
 }
 strong {
   color: #666;
@@ -52,6 +57,25 @@ textarea:focus, input[type=text]:focus {
   font-size: 0.75em;
   color: #888;
 }
+.example, label {
+  white-space: nowrap;
+}
+.options-input {
+  width: 20px;
+}
+.button {
+  border: 1px solid black;
+  background-color: #ccc;
+  cursor: default;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+.button:hover {
+  background-color: #ffb;
+}
+.handle {
+  cursor: move;
+}
 td {
   padding-left: 2px;
   padding-right: 2px;
@@ -61,17 +85,65 @@ a, a:visited {
 }
 </style>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js"></script>
 <script type="text/javascript">
+//<![CDATA[ 
+//For some reason, jQuery does not have a toJSON method. So using the code from https://github.com/douglascrockford/JSON-js/blob/master/json2.js
+// to add JSON.stringify function for older browsers.
+var JSON;JSON||(JSON={});typeof JSON.stringify!=="function"&&function(){function j(c){return c<10?"0"+c:c}function o(c){p.lastIndex=0;return p.test(c)?'"'+c.replace(p,function(f){var b=q[f];return typeof b==="string"?b:"\\u"+("0000"+f.charCodeAt(0).toString(16)).slice(-4)})+'"':'"'+c+'"'}function k(c,f){var b,e,h,l,m=d,g,a=f[c];if(a&&typeof a==="object"&&typeof a.toJSON==="function")a=a.toJSON(c);if(typeof i==="function")a=i.call(f,c,a);switch(typeof a){case "string":return o(a);case "number":return isFinite(a)?String(a):"null";case "boolean":case "null":return String(a);case "object":if(!a)return"null";d+=n;g=[];if(Object.prototype.toString.apply(a)==="[object Array]"){l=a.length;for(b=0;b<l;b+=1)g[b]=k(b,a)||"null";h=g.length===0?"[]":d?"[\n"+d+g.join(",\n"+d)+"\n"+m+"]":"["+g.join(",")+"]";d=m;return h}if(i&&typeof i==="object"){l=i.length;for(b=0;b<l;b+=1){e=i[b];if(typeof e==="string")if(h=k(e,a))g.push(o(e)+(d?": ":":")+h)}}else for(e in a)if(Object.hasOwnProperty.call(a,e))if(h=k(e,a))g.push(o(e)+(d?": ":":")+h);h=g.length===0?"{}":d?"{\n"+d+g.join(",\n"+d)+"\n"+m+"}":"{"+g.join(",")+"}";d=m;return h}}if(typeof Date.prototype.toJSON!=="function"){Date.prototype.toJSON=function(){return isFinite(this.valueOf())?this.getUTCFullYear()+"-"+j(this.getUTCMonth()+1)+"-"+j(this.getUTCDate())+"T"+j(this.getUTCHours())+":"+j(this.getUTCMinutes())+":"+j(this.getUTCSeconds())+"Z":null};String.prototype.toJSON=Number.prototype.toJSON=Boolean.prototype.toJSON=function(){return this.valueOf()}}var p=/[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,d,n,q={"\u0008":"\\b","\t":"\\t","\n":"\\n","\u000c":"\\f","\r":"\\r",'"':'\\"',"\\":"\\\\"},i;if(typeof JSON.stringify!=="function")JSON.stringify=function(c,f,b){var e;n=d="";if(typeof b==="number")for(e=0;e<b;e+=1)n+=" ";else if(typeof b==="string")n=b;if((i=f)&&typeof f!=="function"&&(typeof f!=="object"||typeof f.length!=="number"))throw Error("JSON.stringify");return k("",{"":c})}}();
+
+
 $(function() {
-  resetPage();
-  resizeInputs();
+  //globals
+  var _G = {
+    PREPEND: 0,
+    SIMPLE: 1,
+    REGEX: 2,
+    maxFilterId: 0,
+    filters: null
+  };
+  
+  //---------------------------------------------------------------------------
+  // Initialization
+  //---------------------------------------------------------------------------
+  try {
+    _G.filters = $.parseJSON(getUrlParam('filters'));
+  } catch (e) {}
+  
+  if($.isArray(_G.filters)) {
+    $.each(_G.filters, function() {
+      addFilter(this.type, this, true);
+    });
+  }
+  else {
+    _G.filters = [];
+    addFilter(_G.PREPEND, {}, true);
+    addFilter(_G.SIMPLE, {}, true);
+    addFilter(_G.REGEX, {}, true);
+  }
+  
   $('#input').focus();
   $('body').css('overflow', 'hidden');
+  $('#filters').sortable({revert:100, helper:'clone', opacity: 0.75, handle: '.handle', axis: 'y', stop: updateFilters});
   
+  updateFilters();
+  resizeInputs();
+  
+  //---------------------------------------------------------------------------
+  // Listeners
+  //---------------------------------------------------------------------------
   $(window).resize(resizeInputs);
   
-  $('input,#input').keyup(function(){
-    updatePage();
+  $('#addFilterPrepend').click(function() { return addFilter(_G.PREPEND); });
+  $('#addFilterSimple') .click(function() { return addFilter(_G.SIMPLE ); });
+  $('#addFilterRegex')  .click(function() { return addFilter(_G.REGEX  ); });
+  
+  $('#filters input[type=text]').live('keyup', updateFilters);
+  $('#input').keyup(applyFilters);
+  $('.remove-filter').live('click', function() {
+    $(this).closest('tr').remove();
+    updateFilters();
+    resizeInputs();
   });
   
   //Select all text in output when it gets focus
@@ -86,65 +158,158 @@ $(function() {
     }
   });
   
+  //Copy content from output to input, and rerun filter.
   $('#copyUp').click(function(){
     $('#input').val($('#output').val());
-    updatePage();
+    applyFilters();
   });
   
-  $('#reset').click(resetPage);
+  
+  //---------------------------------------------------------------------------
+  // Core functions
+  //---------------------------------------------------------------------------
   
   /**
-   * Reset the page - set default values for inputs based on url parameters (if given).
+   * Appends a filter to the filter controls.
+   * @param type: One of the global constants PREPEND, SIMPLE, or REGEX.
+   * @param args: Initial values for parameter arguments. Any unspecified paramters will use defaults.
+   * @param isStartup: If set and true, skips call to updateFilters and resizeInputs. Pass true during startup, to prevent
+   *                   redundant work when loading default or passed-in filters.
    */
-  function resetPage() {
-    $('input[type=text]').each(function() {
-      var def = $(this).data('default');
-      if(def == null) {
-        var param = getUrlParam(this.id);
-        if(typeof param != 'undefined')
-          def = param;
-        else
-          def = $(this).val();
-        $(this).data('default', def);
+  function addFilter(type, args, isStartup) {
+    var filter = '';
+    if(!$.isPlainObject(args))
+      args = {};
+    
+    if(type == _G.PREPEND) {
+      if (typeof args.prepend == 'undefined')
+        args.prepend = '';
+      if (typeof args.append == 'undefined')
+        args.append = '';
+      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter prepend-filter">'
+             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><label for="prepend_' + _G.maxFilterId + '">Prepend:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" /></td>'
+             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><label for="append_' + _G.maxFilterId + '">Append:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" /></td>'
+             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td colspan="3"></td>'
+             + '</tr>';
+    }
+    else if (type == _G.SIMPLE) {
+      if (typeof args.find == 'undefined')
+        args.find = '';
+      if (typeof args.replace == 'undefined')
+        args.replace = '';
+      if (typeof args.options == 'undefined')
+        args.options = 'gim';
+      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter simple-filter">'
+             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><label for="find_' + _G.maxFilterId + '">Simple find:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" /></td>'
+             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><label for="replace_' + _G.maxFilterId + '">Simple replace:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" /></td>'
+             +   '<td class="example">\\n,\\t allowed</td>'
+             +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
+             +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
+             +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
+             + '</tr>';
+    }
+    else if (type == _G.REGEX) {
+      if (typeof args.regex == 'undefined')
+        args.regex = '';
+      if (typeof args.replacement == 'undefined')
+        args.replacement = '';
+      if (typeof args.options == 'undefined')
+        args.options = 'gim';
+      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter regex-filter">'
+             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
+             +   '<td><label for="regex_' + _G.maxFilterId + '">Regex find:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" /></td>'
+             +   '<td class="example">No start/end markers</td>'
+             +   '<td><label for="replacement_' + _G.maxFilterId + '">Regex replace:</label></td>'
+             +   '<td><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" /></td>'
+             +   '<td class="example">backrefs: $1 $2 etc</td>'
+             +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
+             +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
+             +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
+             + '</tr>';
+    }
+    
+    if(filter) {
+      $('#filters').append(filter);
+      if(!isStartup) {
+        updateFilters();
+        resizeInputs();
       }
-      $(this).val(def);
-    });
-    updatePage();
+    }
     return false;
   }
   
   /**
-   * Update the page - set permalink URL and run filters.
+   * Updates the _G.filters array based on current arrangement/values.
    */
-  function updatePage()
+  function updateFilters()
+  {
+    _G.filters = [];
+    $('#filters>.filter').each(function() {
+      var id = this.id.substr(this.id.lastIndexOf('_') + 1);
+      var filter = {id: id};
+      if($(this).hasClass('prepend-filter')) {
+        filter.type = _G.PREPEND;
+        filter.prepend = unescapeJS($('#prepend_' + id).val());
+        filter.append = unescapeJS($('#append_' + id).val());
+      }
+      else if($(this).hasClass('simple-filter')) {
+        filter.type = _G.SIMPLE;
+        filter.find = unescapeJS($('#find_' + id).val());
+        filter.replace = unescapeJS($('#replace_' + id).val());
+        filter.options = $('#options_' + id).val();
+      }
+      else if($(this).hasClass('regex-filter')) {
+        filter.type = _G.REGEX;
+        filter.regex = $('#regex_' + id).val();
+        filter.replacement = unescapeJS($('#replacement_' + id).val());
+        filter.options = $('#options_' + id).val();          
+      }
+      if(typeof filter.type != 'undefined')
+        _G.filters.push(filter);
+    });
+    $('#permalink').attr('href', '?filters=' + encodeURIComponent(JSON.stringify(_G.filters)));
+    applyFilters();
+  }
+  
+  /**
+   * Applies all filters to the current input text.
+   */
+  function applyFilters()
   {
     var text = $('#input').val();
-    var prepend = unescapeJS($('#prepend').val());
-    var append = unescapeJS($('#append').val());
-    var find = unescapeJS($('#find').val());
-    var replace = unescapeJS($('#replace').val());
-    var options1 = $('#options1').val();
-    var regex = $('#regex').val();
-    var replacement = unescapeJS($('#replacement').val());
-    var options2 = $('#options2').val();
-    
-    var permalink = '';
-    $('input[type=text]').each(function() {
-      permalink += (permalink == '' ? '?' : '&') + this.id + '=' + encodeURIComponent($(this).val());
-    });
-    $('#permalink').attr('href', permalink);
-    
     try
     {
-      if(prepend.length > 0 || append.length > 0)
-        text = prepend + text.replace(/\n/g, append+"\n"+prepend) + append;
-      
-      if(find.length > 0)
-        text = text.replace(new RegExp(regexQuote(find), options1), replace);
-      
-      if(regex.length > 0)
-        text = text.replace(new RegExp(regex, options2), replacement);
-      
+      $.each(_G.filters, function(i, filter)
+      {
+        if(filter.type == _G.PREPEND)
+        {
+          if(filter.prepend.length > 0 || filter.append.length > 0)
+            text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
+        }
+        else if(filter.type == _G.SIMPLE)
+        {
+          if(filter.find.length > 0)
+            text = text.replace(new RegExp(regexQuote(filter.find), filter.options), filter.replace);
+        }
+        else if(filter.type == _G.REGEX)
+        {
+          if(filter.regex.length > 0)
+            text = text.replace(new RegExp(filter.regex, filter.options), filter.replacement);
+        }
+      });
       $('#output').val(text);
     }
     catch(err)
@@ -153,11 +318,21 @@ $(function() {
     }
   }
   
+  /**
+   * Adjusts the size of the input controls so that they will fill up the whole screen.
+   */
   function resizeInputs() {
+    //The text areas should fill the whole vertical space
     var minHeight = 50;
     var newHeight = $(window).height() - ($('body').height() - $('#input').height() - $('#output').height());
     newHeight = Math.max(Math.floor(newHeight/2), minHeight);
     $('textarea').height(newHeight);
+    
+    //The flex-input elements should fill the whole horizontal space
+    var minFlexWidth = 100;
+    var newFlexWidth = $('body').width() - $('#filters').width() + 2 * Number($('.flex-input:first').width());
+    newFlexWidth = Math.max(Math.floor(newFlexWidth/2), minFlexWidth);
+    $('.flex-input').width(newFlexWidth);
   }
   
   //---------------------------------------------------------------------------
@@ -167,8 +342,7 @@ $(function() {
   /**
    * Escapes any characters which are special characters in a regular expression.
    */
-  function regexQuote(str)
-  {
+  function regexQuote(str) {
     return str.replace(/([\.\\\+\*\?\[\^\]\$\(\)\{\}\=\!\<\>\|\:\-])/g, '\\$1');
   }
   
@@ -178,6 +352,9 @@ $(function() {
    */
   function unescapeJS(str)
   {
+    if(typeof str != 'string')
+      return '';
+    
     if(!(str.length > 0 && str.search(/\\[\\nt]/) >= 0))
       return str;
     
@@ -212,6 +389,17 @@ $(function() {
   }
   
   /**
+   * Escapes literal newlines and tabs to \n and \t. Also escapes bare backslashes with \\.
+   */
+  function escapeJS(str) {
+    if(typeof str != 'string')
+      return '';
+    return str.replace(/\\/g, '\\\\')
+              .replace(/\n/g, '\\n')
+              .replace(/\t/g, '\\t');
+  }
+  
+  /**
    * From: http://www.onlineaspect.com/2009/06/10/reading-get-variables-with-javascript/
    */
   function getUrlParam(q,s) {
@@ -222,43 +410,32 @@ $(function() {
       return typeof s[1] != 'undefined' ? decodeURIComponent(s[1]) : '';
   }
   
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 });
+//]]> 
 </script>
 </head>
 <body>
 <table>
-  <tr>
-    <td><label for="prepend">Prepend:</label></td>
-    <td><input type="text" id="prepend" /></td>
-    <td class="example">\n,\t allowed</td>
-    <td><label for="append">Append:</label></td>
-    <td><input type="text" id="append" /></td>
-    <td class="example">\n,\t allowed</td>
-    <td colspan="3"><a href="#" id="permalink">Permalink</a> | <a href="#" id="reset">Reset</a></td>
-  </tr>
-  <tr>
-    <td><label for="find">Simple find:</label></td>
-    <td><input type="text" id="find" /></td>
-    <td class="example">\n,\t allowed</td>
-    <td><label for="replace">Simple replace:</label></td>
-    <td><input type="text" id="replace" /></td>
-    <td class="example">\n,\t allowed</td>
-    <td><label for="options1">Options:</label></td>
-    <td><input type="text" id="options1" value="gim" /></td>
-    <td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>
-  </tr>
-  <tr>
-    <td><label for="regex">Regex find:</label></td>
-    <td><input type="text" id="regex" /></td>
-    <td class="example">No start/end markers</td>
-    <td><label for="replacement">Regex replace:</label></td>
-    <td><input type="text" id="replacement" /></td>
-    <td class="example">backrefs: $1 $2 etc</td>
-    <td><label for="options2">Options:</label></td>
-    <td><input type="text" id="options2" value="gim" /></td>
-    <td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>
-  </tr>
+  <tbody id="filters">
+  </tbody>
 </table>
-<textarea id="input" wrap="off"></textarea><input type="submit" id="copyUp" value="&uarr; Move &uarr;" /><textarea id="output" readonly="readonly" wrap="off"></textarea>
+<div id="controls">
+  Add filter:
+  <input type="submit" id="addFilterPrepend" value="Prepend" />
+  <input type="submit" id="addFilterSimple" value="Simple" />
+  <input type="submit" id="addFilterRegex" value="Regex" />
+  | <a href="#" id="permalink">Permalink</a>
+</div>
+<textarea id="input" wrap="off"></textarea>
+<input type="submit" id="copyUp" value="&uarr; Move &uarr;" />
+<textarea id="output" readonly="readonly" wrap="off"></textarea>
 </body>
 </html>
