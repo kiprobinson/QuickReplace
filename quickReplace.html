@@ -103,6 +103,17 @@ $(function() {
     idleTimer: null
   };
   
+  var rb = loadResourceBundle();
+  
+  document.title = rb.pageTitle;
+  $('#addFilterLabel').text(rb.addFilter);
+  $('#addFilterPrepend').val(rb.prependType);
+  $('#addFilterSimple').val(rb.simpleType);
+  $('#addFilterRegex').val(rb.regexType);
+  $('#addFilterGrep').val(rb.grepType);
+  $('#permalink').text(rb.permalink);
+  $('#copyUp').val(rb.copyUp).attr('title', rb.copyUpTooltip);
+  
   //---------------------------------------------------------------------------
   // Initialization
   //---------------------------------------------------------------------------
@@ -114,27 +125,11 @@ $(function() {
     _G.filters = $.parseJSON(getUrlParam('filters'));
   } catch (e) {}
   
-  /*
-  if($.isArray(_G.filters)) {
-    $.each(_G.filters, function() {
-      addFilter(this.type, this, true);
-    });
-  }
-  else {
-    _G.filters = [];
-    addFilter(_G.PREPEND, {}, true);
-    addFilter(_G.SIMPLE, {}, true);
-    addFilter(_G.REGEX, {}, true);
-    //addFilter(_G.GREP, {}, true);
-  }
-  */
-  
   if(!$.isArray(_G.filters)) {
     _G.filters = [
       {type: _G.PREPEND},
       {type: _G.SIMPLE},
       {type: _G.REGEX}
-      //,{_G.GREP, {}};
     ]
   }
   
@@ -233,16 +228,16 @@ $(function() {
       if (typeof args.ignoreBlanks == 'undefined')
         args.ignoreBlanks = false;
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter prepend-filter">'
-             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
-             +   '<td><label for="prepend_' + _G.maxFilterId + '">Prepend:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" placeholder="\\n,\\t allowed" /></td>'
-             +   '<td><label for="append_' + _G.maxFilterId + '">Append:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" placeholder="\\n,\\t allowed" /></td>'
+             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
+             +   '<td title="' + rb.prependTooltip + '"><label for="prepend_' + _G.maxFilterId + '">' + rb.prependLabel + '</label></td>'
+             +   '<td title="' + rb.prependTooltip + '"><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" placeholder="' + rb.prependPlaceholder + '" /></td>'
+             +   '<td title="' + rb.appendTooltip + '"><label for="append_' + _G.maxFilterId + '">' + rb.appendLabel + '</label></td>'
+             +   '<td title="' + rb.appendTooltip + '"><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" placeholder="' + rb.appendPlaceholder + '" /></td>'
              +   '<td colspan="3">'
-             +     '<label for="ignoreBlanks_' + _G.maxFilterId + '">Ignore blank lines:</label> '
-             +     '<input type="checkbox" id="ignoreBlanks_' + _G.maxFilterId + '" ' + (args.ignoreBlanks?'checked="checked"':'') + ' />'
+             +     '<label title="' + rb.ignoreBlanksTooltip + '" for="ignoreBlanks_' + _G.maxFilterId + '">' + rb.ignoreBlanks + '</label> '
+             +     '<input title="' + rb.ignoreBlanksTooltip + '" type="checkbox" id="ignoreBlanks_' + _G.maxFilterId + '" ' + (args.ignoreBlanks?'checked="checked"':'') + ' />'
              +   '</td>'
              + '</tr>';
     }
@@ -254,16 +249,16 @@ $(function() {
       if (typeof args.options == 'undefined')
         args.options = 'gim';
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter simple-filter">'
-             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
-             +   '<td><label for="find_' + _G.maxFilterId + '">Simple find:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" placeholder="\\n,\\t allowed" /></td>'
-             +   '<td><label for="replace_' + _G.maxFilterId + '">Simple replace:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" placeholder="\\n,\\t allowed" /></td>'
-             +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
+             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
+             +   '<td title="' + rb.simpleFindTooltip + '"><label for="find_' + _G.maxFilterId + '">' + rb.simpleFindLabel + '</label></td>'
+             +   '<td title="' + rb.simpleFindTooltip + '"><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" placeholder="' + rb.simpleFindPlaceholder + '" /></td>'
+             +   '<td title="' + rb.simpleReplaceTooltip + '"><label for="replace_' + _G.maxFilterId + '">' + rb.simpleReplaceLabel + '</label></td>'
+             +   '<td title="' + rb.simpleReplaceTooltip + '"><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" placeholder="' + rb.simpleReplacePlaceholder + '" /></td>'
+             +   '<td><label for="options_' + _G.maxFilterId + '">' + rb.simpleReplaceOptions + '</label></td>'
              +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
-             +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
+             +   '<td class="example">' + rb.simpleReplaceOptionsDescription + '</td>'
              + '</tr>';
     }
     else if (type == _G.REGEX) {
@@ -274,16 +269,16 @@ $(function() {
       if (typeof args.options == 'undefined')
         args.options = 'gim';
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter regex-filter">'
-             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
-             +   '<td><label for="regex_' + _G.maxFilterId + '">Regex find:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="No start/end markers" /></td>'
-             +   '<td><label for="replacement_' + _G.maxFilterId + '">Regex replace:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" placeholder="backrefs: $1 $2 etc" /></td>'
-             +   '<td><label for="options_' + _G.maxFilterId + '">Options:</label></td>'
+             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
+             +   '<td title="' + rb.regexFindTooltip + '"><label for="regex_' + _G.maxFilterId + '">' + rb.regexFindLabel + '</label></td>'
+             +   '<td title="' + rb.regexFindTooltip + '"><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="' + rb.regexFindPlaceholder + '" /></td>'
+             +   '<td title="' + rb.regexReplaceTooltip + '"><label for="replacement_' + _G.maxFilterId + '">' + rb.regexReplaceLabel + '</label></td>'
+             +   '<td title="' + rb.regexReplaceTooltip + '"><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" placeholder="' + rb.regexReplacePlaceholder + '" /></td>'
+             +   '<td><label for="options_' + _G.maxFilterId + '">' + rb.regexReplaceOptions + '</label></td>'
              +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
-             +   '<td class="example"><strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line</td>'
+             +   '<td class="example">' + rb.regexReplaceOptionsDescription + '</td>'
              + '</tr>';
     }
     else if (type == _G.GREP) {
@@ -294,16 +289,16 @@ $(function() {
       if (typeof args.invert == 'undefined')
         args.invert = false;
       filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter grep-filter">'
-             +   '<td><span class="button handle" title="Drag up or down to rearrange filters">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="Remove this filter">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked="checked"':'') + ' /></td>'
-             +   '<td><label for="grep_' + _G.maxFilterId + '">Regex grep:</label></td>'
-             +   '<td><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="No start/end markers" /></td>'
+             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
+             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
+             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
+             +   '<td title="' + rb.grepTooltip + '"><label for="grep_' + _G.maxFilterId + '">' + rb.grepLabel + '</label></td>'
+             +   '<td title="' + rb.grepTooltip + '"><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="' + rb.grepPlaceholder + '" /></td>'
              +   '<td colspan="5">'
-             +     '<label for="caseSensitive_' + _G.maxFilterId + '">Case-sensitive:</label> '
-             +     '<input type="checkbox" id="caseSensitive_' + _G.maxFilterId + '" ' + (args.caseSensitive?'checked="checked"':'') + ' /> | '
-             +     '<label for="invert_' + _G.maxFilterId + '">Invert:</label> '
-             +     '<input type="checkbox" id="invert_' + _G.maxFilterId + '" ' + (args.invert?'checked="checked"':'') + ' />'
+             +     '<label title="' + rb.caseSensitiveTooltip + '" for="caseSensitive_' + _G.maxFilterId + '">' + rb.caseSensitiveLabel + '</label> '
+             +     '<input title="' + rb.caseSensitiveTooltip + '" type="checkbox" id="caseSensitive_' + _G.maxFilterId + '" ' + (args.caseSensitive?'checked="checked"':'') + ' /> | '
+             +     '<label title="' + rb.invertTooltip + '" for="invert_' + _G.maxFilterId + '">' + rb.invertLabel + '</label> '
+             +     '<input title="' + rb.invertTooltip + '" type="checkbox" id="invert_' + _G.maxFilterId + '" ' + (args.invert?'checked="checked"':'') + ' />'
              +   '</td>'
              + '</tr>';
     }
@@ -561,6 +556,70 @@ $(function() {
     return false;
     //return !!(window.history && history.pushState);
   }
+  
+  function loadResourceBundle() {
+    //TODO: support parameterizing
+    locale = 'en-us';
+    
+    var resources = {
+      'en-us': {
+        pageTitle: 'QuickReplace',
+        addFilter: 'AddFilter',
+        permalink: 'Permalink',
+        rearrangeTooltip: 'Drag up or down to rearrange filters',
+        removeTooltip: 'Remove this filter',
+        enableTooltip: 'Enable/disable this filter',
+        copyUp: '\u2191 Move \u2191',
+        copyUpTooltip: '',
+        
+        prependType: 'Prepend',
+        prependLabel: 'Prepend:',
+        prependPlaceholder: '\\n,\\t allowed',
+        prependTooltip: '',
+        appendLabel: 'Append:',
+        appendPlaceholder: '\\n,\\t allowed',
+        appendTooltip: '',
+        ignoreBlanks: 'Ignore blank lines:',
+        ignoreBlanksTooltip: '',
+        
+        simpleType: 'Simple',
+        simpleFindLabel: 'Simple find:',
+        simpleFindPlaceholder: '\\n,\\t allowed',
+        simpleFindTooltip: '',
+        simpleReplaceLabel: 'Simple replace:',
+        simpleReplacePlaceholder: '\\n,\\t allowed',
+        simpleReplaceTooltip: '',
+        simpleReplaceOptions: 'Options:',
+        simpleReplaceOptionsDescription: '<strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line',
+        
+        regexType: 'Regex',
+        regexFindLabel: 'Regex find:',
+        regexFindPlaceholder: 'No start/end markers',
+        regexFindTooltip: '',
+        regexReplaceLabel: 'Regex replace:',
+        regexReplacePlaceholder: 'backrefs: $1 $2 etc',
+        regexReplaceTooltip: '',
+        regexReplaceOptions: 'Options:',
+        regexReplaceOptionsDescription: '<strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line',
+        
+        grepType: 'Grep',
+        grepLabel: 'Regex grep:',
+        grepPlaceholder: 'No start/end markers',
+        grepTooltip: '',
+        caseSensitiveLabel: 'Case-sensitive',
+        caseSensitiveTooltip: '',
+        invertLabel: 'Invert',
+        invertTooltip: ''
+      }
+    };
+    
+    //for testing...
+    //$.each(resources['en-us'], function(k,v) {
+    //  resources['en-us'][k] = '[_' + k + '_]';
+    //});
+    
+    return resources[locale] || resources['en-us'];
+  }
 });
 //]]> 
 </script>
@@ -571,7 +630,7 @@ $(function() {
   </tbody>
 </table>
 <div id="controls">
-  Add filter:
+  <span id="addFilterLabel">Add filter:</span>
   <input type="submit" id="addFilterPrepend" value="Prepend" />
   <input type="submit" id="addFilterSimple" value="Simple" />
   <input type="submit" id="addFilterRegex" value="Regex" />
