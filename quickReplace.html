@@ -98,21 +98,22 @@ $(function() {
     SIMPLE: 1,
     REGEX: 2,
     GREP: 3,
+    SORT: 4,
     maxFilterId: 0,
     filters: null,
-    idleTimer: null
+    idleTimer: null,
+    rb: loadResourceBundle()
   };
   
-  var rb = loadResourceBundle();
-  
-  document.title = rb.pageTitle;
-  $('#addFilterLabel').text(rb.addFilter);
-  $('#addFilterPrepend').val(rb.prependType);
-  $('#addFilterSimple').val(rb.simpleType);
-  $('#addFilterRegex').val(rb.regexType);
-  $('#addFilterGrep').val(rb.grepType);
-  $('#permalink').text(rb.permalink);
-  $('#copyUp').val(rb.copyUp).attr('title', rb.copyUpTooltip);
+  document.title = _G.rb.pageTitle;
+  $('#addFilterLabel').text(_G.rb.addFilter);
+  $('#addFilterPrepend').val(_G.rb.prependType);
+  $('#addFilterSimple').val(_G.rb.simpleType);
+  $('#addFilterRegex').val(_G.rb.regexType);
+  $('#addFilterGrep').val(_G.rb.grepType);
+  $('#addFilterSort').val(_G.rb.sortType);
+  $('#permalink').text(_G.rb.permalink);
+  $('#copyUp').val(_G.rb.copyUp).attr('title', _G.rb.copyUpTooltip);
   
   //---------------------------------------------------------------------------
   // Initialization
@@ -145,6 +146,7 @@ $(function() {
   $('#addFilterSimple') .click(function() { return addFilter(_G.SIMPLE ); });
   $('#addFilterRegex')  .click(function() { return addFilter(_G.REGEX  ); });
   $('#addFilterGrep')   .click(function() { return addFilter(_G.GREP   ); });
+  $('#addFilterSort')   .click(function() { return addFilter(_G.SORT   ); });
   
   $('#filters').on('keyup', 'input[type=text]', updateFilters);
   $('#filters').on('change', 'input[type=checkbox]', updateFilters);
@@ -229,7 +231,7 @@ $(function() {
         args.ignoreBlanks = false;
       
       filter = renderTemplate($('#prependTemplate').text(), {
-        rb: rb,
+        rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
         argsPrepend: escapeHtml(escapeJS(args.prepend)),
@@ -247,7 +249,7 @@ $(function() {
         args.options = 'gim';
       
       filter = renderTemplate($('#simpleTemplate').text(), {
-        rb: rb,
+        rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
         argsFind: escapeHtml(escapeJS(args.find)),
@@ -264,7 +266,7 @@ $(function() {
         args.options = 'gim';
       
       filter = renderTemplate($('#regexTemplate').text(), {
-        rb: rb,
+        rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
         argsRegex: escapeHtml(escapeJS(args.regex)),
@@ -281,12 +283,27 @@ $(function() {
         args.invert = false;
       
       filter = renderTemplate($('#grepTemplate').text(), {
-        rb: rb,
+        rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
         argsRegex: escapeHtml(escapeJS(args.regex)),
         argsCaseSensitive: args.caseSensitive ? 'checked' : '',
         argsInvert: args.invert ? 'checked' : ''
+      });
+    }
+    else if (type == _G.SORT) {
+      if (typeof args.caseSensitive == 'undefined')
+        args.caseSensitive = false;
+      if (typeof args.reverse == 'undefined')
+        args.reverse = false;
+      
+      filter = renderTemplate($('#sortTemplate').text(), {
+        rb: _G.rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsCaseSensitive: args.caseSensitive ? 'checked' : '',
+        argsReverse: args.reverse ? 'checked' : '',
+        argsRemoveDupes: args.removeDupes ? 'checked' : ''
       });
     }
     
@@ -338,6 +355,14 @@ $(function() {
         filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
         filter.invert = $('#invert_' + id)[0].checked;
       }
+      else if($(this).hasClass('sort-filter')) {
+        filter.type = _G.SORT;
+        filter.enabled = $('#enabled_' + id)[0].checked;
+        filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
+        filter.reverse = $('#reverse_' + id)[0].checked;
+        filter.removeDupes = $('#removeDupes_' + id)[0].checked;
+      }
+
       if(typeof filter.type != 'undefined') {
         _G.filters.push(filter);
         $('#filter_' + id).toggleClass('disabled', !filter.enabled);
@@ -394,6 +419,22 @@ $(function() {
                 if(regex.test(lines[i]) != filter.invert)
                   text += (text.length > 0 ? '\n' : '') + lines[i];
               }
+            }
+          }
+          else if(filter.type == _G.SORT)
+          {
+            var options = { usage: 'sort', sensitivity: filter.caseSensitive ? 'case' : 'base' };
+            var comparator = new Intl.Collator(navigator.language, options);
+            
+            var lines = text.split('\n');
+            lines.sort(function(a,b){return (filter.reverse ? -1 : 1) * comparator.compare(a,b)});
+
+            text = '';
+            for(var i = 0; i < lines.length; i++) {
+              if(filter.removeDupes && i > 0 && comparator.compare(lines[i], lines[i-1]) == 0)
+                continue;
+              
+              text += (text.length > 0 ? '\n' : '') + lines[i];
             }
           }
         }
@@ -591,8 +632,8 @@ $(function() {
         appendLabel: 'Append:',
         appendPlaceholder: '\\n,\\t allowed',
         appendTooltip: '',
-        ignoreBlanks: 'Ignore blank lines:',
-        ignoreBlanksTooltip: '',
+        prependIgnoreBlanks: 'Ignore blank lines:',
+        prependIgnoreBlanksTooltip: '',
         
         simpleType: 'Simple',
         simpleFindLabel: 'Simple find:',
@@ -618,10 +659,20 @@ $(function() {
         grepLabel: 'Regex grep:',
         grepPlaceholder: 'No start/end markers',
         grepTooltip: '',
-        caseSensitiveLabel: 'Case-sensitive',
-        caseSensitiveTooltip: '',
-        invertLabel: 'Invert',
-        invertTooltip: ''
+        grepCaseSensitiveLabel: 'Case-sensitive',
+        grepCaseSensitiveTooltip: '',
+        grepInvertLabel: 'Invert',
+        grepInvertTooltip: '',
+
+        sortType: 'Sort',
+        sortTooltip: '',
+        sortOptions: 'Options:',
+        sortCaseSensitiveLabel: 'Case-sensitive',
+        sortCaseSensitiveTooltip: '',
+        sortReverseLabel: 'Reverse',
+        sortReverseTooltip: '',
+        sortRemoveDupesLabel: 'Remove duplicates',
+        sortRemoveDupesTooltip: 'If checked, duplicate lines will be removed from the sorted result.'
       }
     };
     
@@ -650,8 +701,8 @@ $(function() {
       <input type="text" class="flex-input" id="append_<%= maxFilterId %>" value="<%= argsAppend %>" placeholder="<%= rb.appendPlaceholder %>" />
     </td>
     <td colspan="3">
-      <label title="<%= rb.ignoreBlanksTooltip %>" for="ignoreBlanks_<%= maxFilterId %>"><%= rb.ignoreBlanks %></label> 
-      <input title="<%= rb.ignoreBlanksTooltip %>" type="checkbox" id="ignoreBlanks_<%= maxFilterId %>" <%= argsIgnoreBlanks %> />
+      <label title="<%= rb.prependIgnoreBlanksTooltip %>" for="ignoreBlanks_<%= maxFilterId %>"><%= rb.prependIgnoreBlanks %></label> 
+      <input title="<%= rb.prependIgnoreBlanksTooltip %>" type="checkbox" id="ignoreBlanks_<%= maxFilterId %>" <%= argsIgnoreBlanks %> />
     </td>
   </tr>
 </script>
@@ -701,10 +752,26 @@ $(function() {
       <input type="text" class="flex-input" id="regex_<%= maxFilterId %>" value="<%= argsRegex %>" placeholder="<%= rb.grepPlaceholder %>" />
     </td>
     <td colspan="5">
-      <label title="<%= rb.caseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.caseSensitiveLabel %></label>
-      <input title="<%= rb.caseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> | 
-      <label title="<%= rb.invertTooltip %>" for="invert_<%= maxFilterId %>"><%= rb.invertLabel %></label>
-      <input title="<%= rb.invertTooltip %>" type="checkbox" id="invert_<%= maxFilterId %>" <%= argsInvert %> />
+      <label title="<%= rb.grepCaseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.grepCaseSensitiveLabel %></label>
+      <input title="<%= rb.grepCaseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> | 
+      <label title="<%= rb.grepInvertTooltip %>" for="invert_<%= maxFilterId %>"><%= rb.grepInvertLabel %></label>
+      <input title="<%= rb.grepInvertTooltip %>" type="checkbox" id="invert_<%= maxFilterId %>" <%= argsInvert %> />
+    </td>
+  </tr>
+</script>
+<script id="sortTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter sort-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td><%= rb.sortOptions %></td>
+    <td colspan="6">
+      <label title="<%= rb.sortCaseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.sortCaseSensitiveLabel %></label>
+      <input title="<%= rb.sortCaseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> |
+      <label title="<%= rb.sortReverseTooltip %>" for="reverse_<%= maxFilterId %>"><%= rb.sortReverseLabel %></label>
+      <input title="<%= rb.sortReverseTooltip %>" type="checkbox" id="reverse_<%= maxFilterId %>" <%= argsReverse %> /> |
+      <label title="<%= rb.sortRemoveDupesTooltip %>" for="removeDupes_<%= maxFilterId %>"><%= rb.sortRemoveDupesLabel %></label>
+      <input title="<%= rb.sortRemoveDupesTooltip %>" type="checkbox" id="removeDupes_<%= maxFilterId %>" <%= argsRemoveDupes %> />
     </td>
   </tr>
 </script>
@@ -721,6 +788,7 @@ $(function() {
   <input type="submit" id="addFilterSimple" value="Simple" />
   <input type="submit" id="addFilterRegex" value="Regex" />
   <input type="submit" id="addFilterGrep" value="Grep" />
+  <input type="submit" id="addFilterSort" value="Sort" />
   | <a href="#" id="permalink">Permalink</a>
 </div>
 <textarea id="input" wrap="off"></textarea>
