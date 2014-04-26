@@ -86,8 +86,8 @@ a, a:visited {
   color: blue;
 }
 </style>
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
 <script type="text/javascript">
 //<![CDATA[ 
 
@@ -146,10 +146,10 @@ $(function() {
   $('#addFilterRegex')  .click(function() { return addFilter(_G.REGEX  ); });
   $('#addFilterGrep')   .click(function() { return addFilter(_G.GREP   ); });
   
-  $('#filters input[type=text]').live('keyup', updateFilters);
-  $('#filters input[type=checkbox]').live('change', updateFilters);
+  $('#filters').on('keyup', 'input[type=text]', updateFilters);
+  $('#filters').on('change', 'input[type=checkbox]', updateFilters);
   $('#input').keyup(applyFilters);
-  $('.remove-filter').live('click', function() {
+  $('#filters').on('click', '.remove-filter', function() {
     $(this).closest('tr').remove();
     updateFilters();
     resizeInputs();
@@ -159,7 +159,7 @@ $(function() {
   $('#output').focus(function(){
     $(this).select();
     //workaround required b/c of this webkit bug: http://code.google.com/p/chromium/issues/detail?id=4505
-    if($.browser.webkit) {
+    if(navigator.userAgent.search('WebKit') > -1) {
       $(this).mouseup(function(e) {
         e.preventDefault();
         $(this).unbind('mouseup');
@@ -227,19 +227,16 @@ $(function() {
         args.append = '';
       if (typeof args.ignoreBlanks == 'undefined')
         args.ignoreBlanks = false;
-      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter prepend-filter">'
-             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
-             +   '<td title="' + rb.prependTooltip + '"><label for="prepend_' + _G.maxFilterId + '">' + rb.prependLabel + '</label></td>'
-             +   '<td title="' + rb.prependTooltip + '"><input type="text" class="flex-input" id="prepend_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.prepend)) + '" placeholder="' + rb.prependPlaceholder + '" /></td>'
-             +   '<td title="' + rb.appendTooltip + '"><label for="append_' + _G.maxFilterId + '">' + rb.appendLabel + '</label></td>'
-             +   '<td title="' + rb.appendTooltip + '"><input type="text" class="flex-input" id="append_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.append)) + '" placeholder="' + rb.appendPlaceholder + '" /></td>'
-             +   '<td colspan="3">'
-             +     '<label title="' + rb.ignoreBlanksTooltip + '" for="ignoreBlanks_' + _G.maxFilterId + '">' + rb.ignoreBlanks + '</label> '
-             +     '<input title="' + rb.ignoreBlanksTooltip + '" type="checkbox" id="ignoreBlanks_' + _G.maxFilterId + '" ' + (args.ignoreBlanks?'checked="checked"':'') + ' />'
-             +   '</td>'
-             + '</tr>';
+      
+      filter = renderTemplate($('#prependTemplate').text(), {
+        rb: rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsPrepend: escapeHtml(escapeJS(args.prepend)),
+        argsAppend: escapeHtml(escapeJS(args.append)),
+        argsIgnoreBlanks: args.ignoreBlanks ? 'checked' : ''
+      });
+      
     }
     else if (type == _G.SIMPLE) {
       if (typeof args.find == 'undefined')
@@ -248,18 +245,15 @@ $(function() {
         args.replace = '';
       if (typeof args.options == 'undefined')
         args.options = 'gim';
-      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter simple-filter">'
-             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
-             +   '<td title="' + rb.simpleFindTooltip + '"><label for="find_' + _G.maxFilterId + '">' + rb.simpleFindLabel + '</label></td>'
-             +   '<td title="' + rb.simpleFindTooltip + '"><input type="text" class="flex-input" id="find_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.find)) + '" placeholder="' + rb.simpleFindPlaceholder + '" /></td>'
-             +   '<td title="' + rb.simpleReplaceTooltip + '"><label for="replace_' + _G.maxFilterId + '">' + rb.simpleReplaceLabel + '</label></td>'
-             +   '<td title="' + rb.simpleReplaceTooltip + '"><input type="text" class="flex-input" id="replace_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replace)) + '" placeholder="' + rb.simpleReplacePlaceholder + '" /></td>'
-             +   '<td><label for="options_' + _G.maxFilterId + '">' + rb.simpleReplaceOptions + '</label></td>'
-             +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
-             +   '<td class="example">' + rb.simpleReplaceOptionsDescription + '</td>'
-             + '</tr>';
+      
+      filter = renderTemplate($('#simpleTemplate').text(), {
+        rb: rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsFind: escapeHtml(escapeJS(args.find)),
+        argsReplace: escapeHtml(escapeJS(args.replace)),
+        argsOptions: escapeHtml(args.options)
+      });
     }
     else if (type == _G.REGEX) {
       if (typeof args.regex == 'undefined')
@@ -268,18 +262,15 @@ $(function() {
         args.replacement = '';
       if (typeof args.options == 'undefined')
         args.options = 'gim';
-      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter regex-filter">'
-             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
-             +   '<td title="' + rb.regexFindTooltip + '"><label for="regex_' + _G.maxFilterId + '">' + rb.regexFindLabel + '</label></td>'
-             +   '<td title="' + rb.regexFindTooltip + '"><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="' + rb.regexFindPlaceholder + '" /></td>'
-             +   '<td title="' + rb.regexReplaceTooltip + '"><label for="replacement_' + _G.maxFilterId + '">' + rb.regexReplaceLabel + '</label></td>'
-             +   '<td title="' + rb.regexReplaceTooltip + '"><input type="text" class="flex-input" id="replacement_' + _G.maxFilterId + '" value="' + escapeHtml(escapeJS(args.replacement)) + '" placeholder="' + rb.regexReplacePlaceholder + '" /></td>'
-             +   '<td><label for="options_' + _G.maxFilterId + '">' + rb.regexReplaceOptions + '</label></td>'
-             +   '<td><input type="text" class="options-input" id="options_' + _G.maxFilterId + '" value="' + escapeHtml(args.options) + '" /></td>'
-             +   '<td class="example">' + rb.regexReplaceOptionsDescription + '</td>'
-             + '</tr>';
+      
+      filter = renderTemplate($('#regexTemplate').text(), {
+        rb: rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsRegex: escapeHtml(escapeJS(args.regex)),
+        argsReplacement: escapeHtml(escapeJS(args.replacement)),
+        argsOptions: escapeHtml(args.options)
+      });
     }
     else if (type == _G.GREP) {
       if (typeof args.regex == 'undefined')
@@ -288,19 +279,15 @@ $(function() {
         args.caseSensitive = false;
       if (typeof args.invert == 'undefined')
         args.invert = false;
-      filter = '<tr id="filter_' + (++_G.maxFilterId) + '" class="filter grep-filter">'
-             +   '<td><span class="button handle" title="' + rb.rearrangeTooltip + '">&#8597;</span></td>'
-             +   '<td><span class="button remove-filter" title="' + rb.removeTooltip + '">X</span></td>'
-             +   '<td><input type="checkbox" id="enabled_' + _G.maxFilterId + '"' + (args.enabled?' checked':'') + ' title="' + rb.enableTooltip + '" /></td>'
-             +   '<td title="' + rb.grepTooltip + '"><label for="grep_' + _G.maxFilterId + '">' + rb.grepLabel + '</label></td>'
-             +   '<td title="' + rb.grepTooltip + '"><input type="text" class="flex-input" id="regex_' + _G.maxFilterId + '" value="' + escapeHtml(args.regex) + '" placeholder="' + rb.grepPlaceholder + '" /></td>'
-             +   '<td colspan="5">'
-             +     '<label title="' + rb.caseSensitiveTooltip + '" for="caseSensitive_' + _G.maxFilterId + '">' + rb.caseSensitiveLabel + '</label> '
-             +     '<input title="' + rb.caseSensitiveTooltip + '" type="checkbox" id="caseSensitive_' + _G.maxFilterId + '" ' + (args.caseSensitive?'checked="checked"':'') + ' /> | '
-             +     '<label title="' + rb.invertTooltip + '" for="invert_' + _G.maxFilterId + '">' + rb.invertLabel + '</label> '
-             +     '<input title="' + rb.invertTooltip + '" type="checkbox" id="invert_' + _G.maxFilterId + '" ' + (args.invert?'checked="checked"':'') + ' />'
-             +   '</td>'
-             + '</tr>';
+      
+      filter = renderTemplate($('#grepTemplate').text(), {
+        rb: rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsRegex: escapeHtml(escapeJS(args.regex)),
+        argsCaseSensitive: args.caseSensitive ? 'checked' : '',
+        argsInvert: args.invert ? 'checked' : ''
+      });
     }
     
     if(filter) {
@@ -472,6 +459,31 @@ $(function() {
   //---------------------------------------------------------------------------
   
   /**
+   * A very very simple templating engine. Mimics basic funcionality of Underscore.js templates.
+   * @param template Template content
+   * @param params   Object where keys are strings to be searched, and values are replacements to make.
+   *                 This may contain nested objects.
+   * @params prefix  Only used when recursing.
+   */
+  function renderTemplate(template, params, prefix)
+  {
+    prefix = prefix || '';
+
+    $.each(params, function(k,v) {
+      if($.isPlainObject(v))
+        template = renderTemplate(template, v, k + '.');
+      else
+        template = template.replace(new RegExp('<%=\\s*' + regexQuote(prefix + k) + '\\s*%>', 'g'), v);
+    });
+    
+    //if this was not recursive call, clean up any unused template strings
+    if(prefix=='')
+      template = template.replace(/<%(.*?)%>/g, '');//'MISSING: [$1]');
+    
+    return template;
+  }
+
+  /**
    * Escapes any characters which are special characters in a regular expression.
    */
   function regexQuote(str) {
@@ -623,6 +635,80 @@ $(function() {
 });
 //]]> 
 </script>
+<!--    TEMPLATES     -->
+<script id="prependTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter prepend-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td title="<%= rb.prependTooltip %>"><label for="prepend_<%= maxFilterId %>"><%= rb.prependLabel %></label></td>
+    <td title="<%= rb.prependTooltip %>">
+      <input type="text" class="flex-input" id="prepend_<%= maxFilterId %>" value="<%= argsPrepend %>" placeholder="<%= rb.prependPlaceholder %>" />
+    </td>
+    <td title="<%= rb.appendTooltip %>"><label for="append_<%= maxFilterId %>"><%= rb.appendLabel %></label></td>
+    <td title="<%= rb.appendTooltip %>">
+      <input type="text" class="flex-input" id="append_<%= maxFilterId %>" value="<%= argsAppend %>" placeholder="<%= rb.appendPlaceholder %>" />
+    </td>
+    <td colspan="3">
+      <label title="<%= rb.ignoreBlanksTooltip %>" for="ignoreBlanks_<%= maxFilterId %>"><%= rb.ignoreBlanks %></label> 
+      <input title="<%= rb.ignoreBlanksTooltip %>" type="checkbox" id="ignoreBlanks_<%= maxFilterId %>" <%= argsIgnoreBlanks %> />
+    </td>
+  </tr>
+</script>
+<script id="simpleTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter simple-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td title="<%= rb.simpleFindTooltip %>"><label for="find_<%= maxFilterId %>"><%= rb.simpleFindLabel %></label></td>
+    <td title="<%= rb.simpleFindTooltip %>">
+      <input type="text" class="flex-input" id="find_<%= maxFilterId %>" value="<%= argsFind %>" placeholder="<%= rb.simpleFindPlaceholder %>" />
+    </td>
+    <td title="<%= rb.simpleReplaceTooltip %>"><label for="replace_<%= maxFilterId %>"><%= rb.simpleReplaceLabel %></label></td>
+    <td title="<%= rb.simpleReplaceTooltip %>">
+      <input type="text" class="flex-input" id="replace_<%= maxFilterId %>" value="<%= argsReplace %>" placeholder="<%= rb.simpleReplacePlaceholder %>" />
+    </td>
+    <td><label for="options_<%= maxFilterId %>"><%= rb.simpleReplaceOptions %></label></td>
+    <td><input type="text" class="options-input" id="options_<%= maxFilterId %>" value="<%= argsOptions %>" /></td>
+    <td class="example"><%= rb.simpleReplaceOptionsDescription %></td>
+  </tr>
+</script>
+<script id="regexTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter regex-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td title="<%= rb.regexFindTooltip %>"><label for="regex_<%= maxFilterId %>"><%= rb.regexFindLabel %></label></td>
+    <td title="<%= rb.regexFindTooltip %>">
+      <input type="text" class="flex-input" id="regex_<%= maxFilterId %>" value="<%= argsRegex %>" placeholder="<%= rb.regexFindPlaceholder %>" />
+    </td>
+    <td title="<%= rb.regexReplaceTooltip %>"><label for="replacement_<%= maxFilterId %>"><%= rb.regexReplaceLabel %></label></td>
+    <td title="<%= rb.regexReplaceTooltip %>">
+      <input type="text" class="flex-input" id="replacement_<%= maxFilterId %>" value="<%= argsReplacement %>" placeholder="<%= rb.regexReplacePlaceholder %>" />
+    </td>
+    <td><label for="options_<%= maxFilterId %>"><%= rb.regexReplaceOptions %></label></td>
+    <td><input type="text" class="options-input" id="options_<%= maxFilterId %>" value="<%= argsOptions %>" /></td>
+    <td class="example"><%= rb.regexReplaceOptionsDescription %></td>
+  </tr>
+</script>
+<script id="grepTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter grep-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td title="<%= rb.grepTooltip %>"><label for="grep_<%= maxFilterId %>"><%= rb.grepLabel %></label></td>
+    <td title="<%= rb.grepTooltip %>">
+      <input type="text" class="flex-input" id="regex_<%= maxFilterId %>" value="<%= argsRegex %>" placeholder="<%= rb.grepPlaceholder %>" />
+    </td>
+    <td colspan="5">
+      <label title="<%= rb.caseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.caseSensitiveLabel %></label>
+      <input title="<%= rb.caseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> | 
+      <label title="<%= rb.invertTooltip %>" for="invert_<%= maxFilterId %>"><%= rb.invertLabel %></label>
+      <input title="<%= rb.invertTooltip %>" type="checkbox" id="invert_<%= maxFilterId %>" <%= argsInvert %> />
+    </td>
+  </tr>
+</script>
+<!--    END TEMPLATES     -->
 </head>
 <body>
 <table>
