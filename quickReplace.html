@@ -269,7 +269,7 @@ $(function() {
         rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
-        argsRegex: escapeHtml(escapeJS(args.regex)),
+        argsRegex: escapeHtml(args.regex),
         argsReplacement: escapeHtml(escapeJS(args.replacement)),
         argsOptions: escapeHtml(args.options)
       });
@@ -286,7 +286,7 @@ $(function() {
         rb: _G.rb,
         maxFilterId: ++_G.maxFilterId,
         argsEnabled: args.enabled ? 'checked' : '',
-        argsRegex: escapeHtml(escapeJS(args.regex)),
+        argsRegex: escapeHtml(args.regex),
         argsCaseSensitive: args.caseSensitive ? 'checked' : '',
         argsInvert: args.invert ? 'checked' : ''
       });
