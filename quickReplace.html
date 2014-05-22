@@ -393,9 +393,8 @@ $(function() {
           {
             if(filter.prepend.length > 0 || filter.append.length > 0)
             {
-              //text = filter.prepend + text.replace(/\n/g, filter.append + "\n" + filter.prepend) + filter.append;
               var regex = new RegExp(filter.ignoreBlanks ? '^(.+)$' : '^(.*)$', 'gm');
-              var replace = filter.prepend.replace('$', '$$') + '$1' + filter.append.replace('$', '$$');
+              var replace = filter.prepend.replace(/\$/g, '$$$$') + '$1' + filter.append.replace(/\$/g, '$$$$');
               text = text.replace(regex, replace);
             }
           }
@@ -540,37 +539,13 @@ $(function() {
     if(typeof str != 'string')
       return '';
     
-    if(!(str.length > 0 && str.search(/\\[\\nt]/) >= 0))
-      return str;
-    
-    var ret = '';
-    var bsFound = false;
-    for(var i = 0; i < str.length; i++)
-    {
-      var ch = str.charAt(i);
-      if(bsFound)
-      {
-        if(ch == 'n')
-          ret += "\n";
-        else if (ch == 't')
-          ret += "\t";
-        else if (ch == "\\")
-          ret += "\\";
-        else
-          ret += "\\" + ch;
-        
-        bsFound = false;
-      }
-      else
-      {
-        if(ch == "\\" && i != str.length - 1)
-          bsFound = true;
-        else
-          ret += ch;
-      }
-    }
-    
-    return ret;
+    var map = {
+      '\\n': '\n',
+      '\\t': '\t',
+      '\\\\': '\\'
+    };
+
+    return str.replace(/\\[\\nt]/g, function(m) { return map[m]; });
   }
   
   /**
@@ -579,9 +554,14 @@ $(function() {
   function escapeJS(str) {
     if(typeof str != 'string')
       return '';
-    return str.replace(/\\/g, '\\\\')
-              .replace(/\n/g, '\\n')
-              .replace(/\t/g, '\\t');
+
+    var map = {
+      '\\': '\\\\',
+      '\n': '\\n',
+      '\t': '\\t'
+    };
+
+    return str.replace(/[\\\n\t]/g, function(m) { return map[m]; });
   }
   
   /**
@@ -595,13 +575,19 @@ $(function() {
       return typeof s[1] != 'undefined' ? decodeURIComponent(s[1]) : '';
   }
   
-  function escapeHtml(unsafe) {
-    return unsafe
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+  function escapeHtml(str) {
+    if(typeof str != 'string')
+      return '';
+    
+    var map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+
+    return str.replace(/[&<>"']/g, function(m) { return map[m]; });
   }
   
   function supportsHistoryApi() {
