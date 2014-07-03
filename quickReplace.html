@@ -281,6 +281,8 @@ $(function() {
         args.caseSensitive = false;
       if (typeof args.invert == 'undefined')
         args.invert = false;
+      if (typeof args.onlyMatched == 'undefined')
+        args.onlyMatched = false;
       
       filter = renderTemplate($('#grepTemplate').text(), {
         rb: _G.rb,
@@ -288,7 +290,8 @@ $(function() {
         argsEnabled: args.enabled ? 'checked' : '',
         argsRegex: escapeHtml(args.regex),
         argsCaseSensitive: args.caseSensitive ? 'checked' : '',
-        argsInvert: args.invert ? 'checked' : ''
+        argsInvert: args.invert ? 'checked' : '',
+        argsOnlyMatched: args.onlyMatched ? 'checked' : ''
       });
     }
     else if (type == _G.SORT) {
@@ -354,6 +357,7 @@ $(function() {
         filter.regex = $('#regex_' + id).val();
         filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
         filter.invert = $('#invert_' + id)[0].checked;
+        filter.onlyMatched = $('#onlyMatched_' + id)[0].checked;
       }
       else if($(this).hasClass('sort-filter')) {
         filter.type = _G.SORT;
@@ -415,8 +419,17 @@ $(function() {
               var lines = text.split('\n');
               text = '';
               for(var i = 0; i < lines.length; i++) {
-                if(regex.test(lines[i]) != filter.invert)
-                  text += (text.length > 0 ? '\n' : '') + lines[i];
+                var lineToAdd = '';
+                if(filter.onlyMatched && !filter.invert) {
+                  var matches = lines[i].match(regex);
+                  if(matches != null)
+                    lineToAdd = matches[0];
+                }
+                else if(regex.test(lines[i]) != filter.invert) {
+                  lineToAdd = lines[i];
+                }
+                if(lineToAdd != '')
+                  text += (text.length > 0 ? '\n' : '') + lineToAdd;
               }
             }
           }
@@ -649,6 +662,8 @@ $(function() {
         grepCaseSensitiveTooltip: '',
         grepInvertLabel: 'Invert',
         grepInvertTooltip: '',
+        grepOnlyMatchedLabel: 'Only Keep Matched Content',
+        grepOnlyMatchedTooltip: '',
 
         sortType: 'Sort',
         sortTooltip: '',
@@ -741,7 +756,9 @@ $(function() {
       <label title="<%= rb.grepCaseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.grepCaseSensitiveLabel %></label>
       <input title="<%= rb.grepCaseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> | 
       <label title="<%= rb.grepInvertTooltip %>" for="invert_<%= maxFilterId %>"><%= rb.grepInvertLabel %></label>
-      <input title="<%= rb.grepInvertTooltip %>" type="checkbox" id="invert_<%= maxFilterId %>" <%= argsInvert %> />
+      <input title="<%= rb.grepInvertTooltip %>" type="checkbox" id="invert_<%= maxFilterId %>" <%= argsInvert %> /> |
+      <label title="<%= rb.grepOnlyMatchedTooltip %>" for="onlyMatched_<%= maxFilterId %>"><%= rb.grepOnlyMatchedLabel %></label>
+      <input title="<%= rb.grepOnlyMatchedTooltip %>" type="checkbox" id="onlyMatched_<%= maxFilterId %>" <%= argsOnlyMatched %> />
     </td>
   </tr>
 </script>
