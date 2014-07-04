@@ -112,7 +112,7 @@ $(function() {
   $('#addFilterRegex').val(_G.rb.regexType);
   $('#addFilterGrep').val(_G.rb.grepType);
   $('#addFilterSort').val(_G.rb.sortType);
-  $('#permalink').text(_G.rb.permalink);
+  $('#permalink').text(_G.rb.permalink).attr('title', _G.rb.permalinkTooltip);
   $('#copyUp').val(_G.rb.copyUp).attr('title', _G.rb.copyUpTooltip);
   
   //---------------------------------------------------------------------------
@@ -618,6 +618,7 @@ $(function() {
         pageTitle: 'QuickReplace',
         addFilter: 'AddFilter',
         permalink: 'Permalink',
+        permalinkTooltip: 'A URL that will link to this set of filters. Allows you to bookmark this set of filters.',
         rearrangeTooltip: 'Drag up or down to rearrange filters',
         removeTooltip: 'Remove this filter',
         enableTooltip: 'Enable/disable this filter',
