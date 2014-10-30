@@ -113,6 +113,7 @@ $(function() {
   $('#addFilterGrep').val(_G.rb.grepType);
   $('#addFilterSort').val(_G.rb.sortType);
   $('#permalink').text(_G.rb.permalink).attr('title', _G.rb.permalinkTooltip);
+  $('#download').text(_G.rb.download).attr('title', _G.rb.downloadTooltip).toggle(supportsBlobUrl());
   $('#copyUp').val(_G.rb.copyUp).attr('title', _G.rb.copyUpTooltip);
   
   //---------------------------------------------------------------------------
@@ -452,6 +453,8 @@ $(function() {
         }
       });
       $('#output').val(text);
+      if(supportsBlobUrl())
+        $('#download').attr('href', window.URL.createObjectURL(new Blob([text], {type:'text/plain'})));
     }
     catch(err)
     {
@@ -608,6 +611,10 @@ $(function() {
     return false;
     //return !!(window.history && history.pushState);
   }
+
+  function supportsBlobUrl() {
+    return !!(window.Blob && window.URL && window.URL.createObjectURL);
+  }
   
   function loadResourceBundle() {
     //TODO: support parameterizing
@@ -619,6 +626,8 @@ $(function() {
         addFilter: 'AddFilter',
         permalink: 'Permalink',
         permalinkTooltip: 'A URL that will link to this set of filters. Allows you to bookmark this set of filters.',
+        download: 'Download',
+        downloadTooltip: 'Download the output file as a text file.',
         rearrangeTooltip: 'Drag up or down to rearrange filters',
         removeTooltip: 'Remove this filter',
         enableTooltip: 'Enable/disable this filter',
@@ -794,6 +803,7 @@ $(function() {
   <input type="submit" id="addFilterGrep" value="Grep" />
   <input type="submit" id="addFilterSort" value="Sort" />
   | <a href="#" id="permalink">Permalink</a>
+  | <a href="#" download="replaced.txt" id="download">Download</a>
 </div>
 <textarea id="input" wrap="off"></textarea>
 <input type="submit" id="copyUp" value="&uarr; Move &uarr;" />
