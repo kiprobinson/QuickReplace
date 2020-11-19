@@ -536,7 +536,7 @@ $(function() {
       if($.isPlainObject(v))
         template = renderTemplate(template, v, k + '.');
       else
-        template = template.replace(new RegExp('<%=\\s*' + regexQuote(prefix + k) + '\\s*%>', 'g'), v);
+        template = template.replace(new RegExp('<%=\\s*' + regexQuote(prefix + k) + '\\s*%>', 'g'), String(v).replace(/\$/g, '$$$$'));
     });
     
     //if this was not recursive call, clean up any unused template strings
