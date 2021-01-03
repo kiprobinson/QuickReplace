@@ -183,6 +183,20 @@ $(function() {
     applyFilters();
   });
   
+  $('#download').on('click', function(e) {
+    e.preventDefault();
+    const text = $('#output').val();
+    const a = document.createElement("a");
+    a.style = "display: none";
+    
+    const url = window.URL.createObjectURL(new Blob([text], {type:'text/plain'}));
+    a.href = url;
+    a.download = 'replaced.txt';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+  });
+  
   //Utilize history API if available
   if(supportsHistoryApi()){
     $(window).bind('popstate', function(e) {
@@ -460,8 +474,6 @@ $(function() {
         }
       });
       $('#output').val(text);
-      if(supportsBlobUrl())
-        $('#download').attr('href', window.URL.createObjectURL(new Blob([text], {type:'text/plain'})));
     }
     catch(err)
     {
