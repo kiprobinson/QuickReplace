@@ -5,7 +5,7 @@ QuickReplace is a simple, self-contained web app for making changes to a block o
 
 You don't even need a webserver to run this; you can just open the HTML file from your local hard drive.
 
-[Live Preview.][preview]
+[View Demo][demo]
 
 
-[preview]: https://tilde.ampersand.space/quick-replace/
+[demo]: https://tilde.ampersand.space/quick-replace/
