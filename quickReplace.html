@@ -168,6 +168,9 @@ $(function() {
     resizeInputs();
   });
   
+  //hack because layout is computed before webfonts load, then the fonts mess it up... I need to find a better way...
+  setTimeout(resizeInputs, 500);
+  
   //Select all text in output when it gets focus
   $('#output').focus(function(){
     $(this).select();
