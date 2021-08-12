@@ -162,7 +162,8 @@ $(function() {
   
   $('#filters').on('keyup', 'input[type=text]', updateFilters);
   $('#filters').on('change', 'input[type=checkbox]', updateFilters);
-  $('#input').keyup(applyFilters);
+  $('#input').on('keyup', applyFilters);
+  $('#input').on('paste', () => setTimeout(applyFilters));
   $('#filters').on('click', '.remove-filter', function() {
     $(this).closest('tr').remove();
     updateFilters();
@@ -649,7 +650,7 @@ $(function() {
     var resources = {
       'en-us': {
         pageTitle: 'QuickReplace',
-        addFilter: 'AddFilter',
+        addFilter: 'Add Filter',
         permalink: 'Permalink',
         permalinkTooltip: 'A URL that will link to this set of filters. Allows you to bookmark this set of filters.',
         download: 'Download',
