@@ -127,6 +127,7 @@ $(function() {
   $('#addFilterSort').val(_G.rb.sortType);
   $('#permalink').text(_G.rb.permalink).attr('title', _G.rb.permalinkTooltip);
   $('#download').text(_G.rb.download).attr('title', _G.rb.downloadTooltip).toggle(supportsBlobUrl());
+  $('#copy').text(_G.rb.copy).attr('title', _G.rb.copyTooltip);
   $('#copyUp').val(_G.rb.copyUp).attr('title', _G.rb.copyUpTooltip);
   
   //---------------------------------------------------------------------------
@@ -205,6 +206,12 @@ $(function() {
     a.click();
     window.URL.revokeObjectURL(url);
     a.remove();
+  });
+  
+  $('#copy').on('click', function(e) {
+    e.preventDefault();
+    const text = $('#output').val();
+    navigator.clipboard.writeText(text).then(() => {}, (err) => console.error('copy error! ' + err));
   });
   
   //Utilize history API if available
@@ -655,8 +662,10 @@ $(function() {
         addFilter: 'Add Filter',
         permalink: 'Permalink',
         permalinkTooltip: 'A URL that will link to this set of filters. Allows you to bookmark this set of filters.',
-        download: 'Download',
+        download: '\u21E9 Download',
         downloadTooltip: 'Download the output file as a text file.',
+        copy: '\u29c9 Copy',
+        copyTooltip: 'Copy all output to clipboard.',
         rearrangeTooltip: 'Drag up or down to rearrange filters',
         removeTooltip: 'Remove this filter',
         enableTooltip: 'Enable/disable this filter',
@@ -833,6 +842,7 @@ $(function() {
   <input type="submit" id="addFilterSort" value="Sort" />
   | <a href="#" id="permalink">Permalink</a>
   | <a href="#" download="replaced.txt" id="download">Download</a>
+  | <a href="#" id="copy">Copy</a>
 </div>
 <textarea id="input" wrap="off"></textarea>
 <input type="submit" id="copyUp" value="&uarr; Move &uarr;" />
