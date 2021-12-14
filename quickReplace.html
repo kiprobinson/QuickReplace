@@ -73,7 +73,10 @@ textarea:focus, input[type=text]:focus {
   white-space: nowrap;
 }
 .options-input {
-  width: 1.5rem;
+  width: 1.75rem;
+}
+label.radio {
+  margin-right: 0.75em;
 }
 .button {
   border: 1px solid black;
@@ -112,6 +115,7 @@ $(function() {
     REGEX: 2,
     GREP: 3,
     SORT: 4,
+    CASE: 5,
     maxFilterId: 0,
     filters: null,
     idleTimer: null,
@@ -125,6 +129,7 @@ $(function() {
   $('#addFilterRegex').val(_G.rb.regexType);
   $('#addFilterGrep').val(_G.rb.grepType);
   $('#addFilterSort').val(_G.rb.sortType);
+  $('#addFilterCase').val(_G.rb.caseType);
   $('#permalink').text(_G.rb.permalink).attr('title', _G.rb.permalinkTooltip);
   $('#download').text(_G.rb.download).attr('title', _G.rb.downloadTooltip).toggle(supportsBlobUrl());
   $('#copy').text(_G.rb.copy).attr('title', _G.rb.copyTooltip);
@@ -162,9 +167,11 @@ $(function() {
   $('#addFilterRegex')  .click(function() { return addFilter(_G.REGEX  ); });
   $('#addFilterGrep')   .click(function() { return addFilter(_G.GREP   ); });
   $('#addFilterSort')   .click(function() { return addFilter(_G.SORT   ); });
+  $('#addFilterCase')   .click(function() { return addFilter(_G.CASE   ); });
   
   $('#filters').on('keyup', 'input[type=text]', updateFilters);
   $('#filters').on('change', 'input[type=checkbox]', updateFilters);
+  $('#filters').on('change', 'input[type=radio]', updateFilters);
   $('#input').on('keyup', applyFilters);
   $('#input').on('paste', () => setTimeout(applyFilters));
   $('#filters').on('click', '.remove-filter', function() {
@@ -348,6 +355,30 @@ $(function() {
         argsRemoveDupes: args.removeDupes ? 'checked' : ''
       });
     }
+    else if (type == _G.CASE) {
+      if (typeof args.regex == 'undefined')
+        args.regex = '';
+      if (typeof args.caseOption == 'undefined')
+        args.caseOption = 'upper'
+      if (typeof args.options == 'undefined')
+        args.options = 'gim';
+      
+      // handling for radio options
+      args.caseOptionUpper = (args.caseOption === 'upper');
+      args.caseOptionLower = (args.caseOption === 'lower');
+      args.caseOptionTitle = (args.caseOption === 'title');
+      
+      filter = renderTemplate($('#caseTemplate').text(), {
+        rb: _G.rb,
+        maxFilterId: ++_G.maxFilterId,
+        argsEnabled: args.enabled ? 'checked' : '',
+        argsRegex: escapeHtml(args.regex),
+        argsCaseOptionUpper: args.caseOptionUpper ? 'checked' : '',
+        argsCaseOptionLower: args.caseOptionLower ? 'checked' : '',
+        argsCaseOptionTitle: args.caseOptionTitle ? 'checked' : '',
+        argsOptions: escapeHtml(args.options),
+      });
+    }
     
     if(filter) {
       $('#filters').append(filter);
@@ -404,6 +435,13 @@ $(function() {
         filter.caseSensitive = $('#caseSensitive_' + id)[0].checked;
         filter.reverse = $('#reverse_' + id)[0].checked;
         filter.removeDupes = $('#removeDupes_' + id)[0].checked;
+      }
+      else if($(this).hasClass('case-filter')) {
+        filter.type = _G.CASE;
+        filter.enabled = $('#enabled_' + id)[0].checked;
+        filter.regex = $('#regex_' + id).val();
+        filter.caseOption = $(`input[name="caseOption_${id}"]:checked`).val() || 'upper';
+        filter.options = $('#options_' + id).val();
       }
 
       if(typeof filter.type != 'undefined') {
@@ -479,13 +517,28 @@ $(function() {
             
             var lines = text.split('\n');
             lines.sort(function(a,b){return (filter.reverse ? -1 : 1) * comparator.compare(a,b)});
-
+            
             text = '';
             for(var i = 0; i < lines.length; i++) {
               if(filter.removeDupes && i > 0 && comparator.compare(lines[i], lines[i-1]) == 0)
                 continue;
               
               text += (text.length > 0 ? '\n' : '') + lines[i];
+            }
+          }
+          else if(filter.type == _G.CASE)
+          {
+            if(filter.regex.length > 0) {
+              const regex = new RegExp(filter.regex, filter.options);
+              const replacement = s => {
+                if(filter.caseOption === 'upper')
+                  return s.toUpperCase();
+                else if(filter.caseOption === 'lower')
+                  return s.toLowerCase();
+                else if(filter.caseOption === 'title')
+                  return s.replace(/(?<=^|\W)[a-z]/g, s => s.toUpperCase());
+              };
+              text = text.replace(regex, replacement);
             }
           }
         }
@@ -706,13 +759,14 @@ $(function() {
         grepLabel: 'Regex grep:',
         grepPlaceholder: 'No start/end markers',
         grepTooltip: 'Regular expression to search for in input text',
+        grepOptions: 'Options:',
         grepCaseSensitiveLabel: 'Case-sensitive',
         grepCaseSensitiveTooltip: 'If checked, regular expression match will be case-sensitive',
         grepInvertLabel: 'Invert',
         grepInvertTooltip: 'If checked, only lines that do *not* match the input will be kept',
         grepOnlyMatchedLabel: 'Only Keep Matched Content',
         grepOnlyMatchedTooltip: 'If checked, only the text that matched the regular expression will be kept in the output. Has no effect on "inverted" grep.',
-
+        
         sortType: 'Sort',
         sortTooltip: 'Sorts all lines of the input text',
         sortOptions: 'Options:',
@@ -721,7 +775,21 @@ $(function() {
         sortReverseLabel: 'Reverse',
         sortReverseTooltip: 'If checked, search results will be reversed (i.e. Z->A)',
         sortRemoveDupesLabel: 'Remove duplicates',
-        sortRemoveDupesTooltip: 'If checked, duplicate lines will be removed from the sorted result.'
+        sortRemoveDupesTooltip: 'If checked, duplicate lines will be removed from the sorted result.',
+        
+        caseType: 'Change Case',
+        caseLabel: 'Regex find:',
+        casePlaceholder: 'No start/end markers',
+        caseTooltip: 'Regular expression to search for in input text',
+        caseOption: 'Change Case:',
+        caseOptionUpperTooltip: 'Change matching text to UPPER CASE',
+        caseOptionUpper: 'UPPER CASE',
+        caseOptionLowerTooltip: 'Change matching text to lower case',
+        caseOptionLower: 'lower case',
+        caseOptionTitleTooltip: 'Change matching text to Title Case',
+        caseOptionTitle: 'Title Case',
+        caseReplaceOptions: 'Options:',
+        caseReplaceOptionsDescription: '<strong>g</strong>lobal case-<strong>i</strong>nsensitive <strong>m</strong>ulti-line',
       }
     };
     
@@ -800,7 +868,8 @@ $(function() {
     <td title="<%= rb.grepTooltip %>">
       <input type="text" class="flex-input" id="regex_<%= maxFilterId %>" value="<%= argsRegex %>" placeholder="<%= rb.grepPlaceholder %>" />
     </td>
-    <td colspan="5">
+    <td><%= rb.grepOptions %></td>
+    <td colspan="4">
       <label title="<%= rb.grepCaseSensitiveTooltip %>" for="caseSensitive_<%= maxFilterId %>"><%= rb.grepCaseSensitiveLabel %></label>
       <input title="<%= rb.grepCaseSensitiveTooltip %>" type="checkbox" id="caseSensitive_<%= maxFilterId %>" <%= argsCaseSensitive %> /> | 
       <label title="<%= rb.grepInvertTooltip %>" for="invert_<%= maxFilterId %>"><%= rb.grepInvertLabel %></label>
@@ -826,6 +895,34 @@ $(function() {
     </td>
   </tr>
 </script>
+<script id="caseTemplate" type="text/html">
+  <tr id="filter_<%= maxFilterId %>" class="filter case-filter">
+    <td><span class="button handle" title="<%= rb.rearrangeTooltip %>">&#8597;</span></td>
+    <td><span class="button remove-filter" title="<%= rb.removeTooltip %>">X</span></td>
+    <td><input type="checkbox" id="enabled_<%= maxFilterId %>" <%= argsEnabled %> title="<%= rb.enableTooltip %>" /></td>
+    <td title="<%= rb.caseTooltip %>"><label for="case_<%= maxFilterId %>"><%= rb.caseLabel %></label></td>
+    <td title="<%= rb.caseTooltip %>">
+      <input type="text" class="flex-input" id="regex_<%= maxFilterId %>" value="<%= argsRegex %>" placeholder="<%= rb.casePlaceholder %>" />
+    </td>
+    <td><%= rb.caseOption %></td>
+    <td>
+      <label class="radio" title="<%= rb.caseOptionUpperTooltip %>" for="caseOption_upper_<%= maxFilterId %>">
+        <input type="radio" id="caseOption_upper_<%= maxFilterId %>" name="caseOption_<%= maxFilterId %>" value="upper" <%= argsCaseOptionUpper %> />
+        <%= rb.caseOptionUpper %>
+      </label>
+      <label class="radio" title="<%= rb.caseOptionLowerTooltip %>" for="caseOption_lower_<%= maxFilterId %>">
+        <input type="radio" id="caseOption_lower_<%= maxFilterId %>" name="caseOption_<%= maxFilterId %>" value="lower" <%= argsCaseOptionLower %> />
+        <%= rb.caseOptionLower %>
+      </label>
+      <label class="radio" title="<%= rb.caseOptionTitleTooltip %>" for="caseOption_title_<%= maxFilterId %>">
+        <input type="radio" id="caseOption_title_<%= maxFilterId %>" name="caseOption_<%= maxFilterId %>" value="title" <%= argsCaseOptionTitle %> />
+        <%= rb.caseOptionTitle %>
+      </label>
+    </td>
+    <td><label for="options_<%= maxFilterId %>"><%= rb.caseReplaceOptions %></label></td>
+    <td><input type="text" class="options-input" id="options_<%= maxFilterId %>" value="<%= argsOptions %>" /></td>
+    <td class="example"><%= rb.caseReplaceOptionsDescription %></td>  </tr>
+</script>
 <!--    END TEMPLATES     -->
 </head>
 <body>
@@ -840,6 +937,7 @@ $(function() {
   <input type="submit" id="addFilterRegex" value="Regex" />
   <input type="submit" id="addFilterGrep" value="Grep" />
   <input type="submit" id="addFilterSort" value="Sort" />
+  <input type="submit" id="addFilterCase" value="Case" />
   | <a href="#" id="permalink">Permalink</a>
   | <a href="#" download="replaced.txt" id="download">Download</a>
   | <a href="#" id="copy">Copy</a>
