@@ -536,7 +536,7 @@ $(function() {
                 else if(filter.caseOption === 'lower')
                   return s.toLowerCase();
                 else if(filter.caseOption === 'title')
-                  return s.replace(/(?<=^|\W)[a-z]/g, s => s.toUpperCase());
+                  return s.replace(/(^|\W)(\w)(\w*)/g, (s, m1, m2, m3) => m1 + m2.toUpperCase() + m3.toLowerCase());
               };
               text = text.replace(regex, replacement);
             }
