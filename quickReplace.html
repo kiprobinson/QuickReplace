@@ -169,11 +169,10 @@ $(function() {
   $('#addFilterSort')   .click(function() { return addFilter(_G.SORT   ); });
   $('#addFilterCase')   .click(function() { return addFilter(_G.CASE   ); });
   
-  $('#filters').on('keyup', 'input[type=text]', updateFilters);
+  $('#filters').on('input', 'input[type=text]', updateFilters);
   $('#filters').on('change', 'input[type=checkbox]', updateFilters);
   $('#filters').on('change', 'input[type=radio]', updateFilters);
-  $('#input').on('keyup', applyFilters);
-  $('#input').on('paste', () => setTimeout(applyFilters));
+  $('#input').on('input', applyFilters);
   $('#filters').on('click', '.remove-filter', function() {
     $(this).closest('tr').remove();
     updateFilters();
