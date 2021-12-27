@@ -121,15 +121,22 @@ class BitWriter {
   
   /**
    * Writes the given number of bits to the stream.
-   * @param numBits {1|2|3|4|5|6|7|8} Number of bits to write (max 8)
+   * @param numBits Number of bits to write (max 32)
    * @param value {number} One-byte value to be written. If numBits is less than 8, the bits to
    *              be written should be in the lower bits. For example, `write(3, 0b10100010)` will
    *              only write the final three bits (010).
    */
   write(numBits, value) {
     numBits &= 0xff;
-    if(numBits < 1 || numBits > 8)
+    if(numBits < 1 || numBits > 32)
       throw new Error(`Illegal numBits: ${numBits}`);
+    
+    //if writing more than one byte, recurseively write first byte, then the rest. (I could definitely optimize this)
+    if(numBits > 8) {
+      this.write(8, value >> (numBits - 8));
+      this.write(numBits - 8, value);
+      return;
+    }
     
     //apply mask to ensure only desired bits are present
     value &= (1 << numBits) - 1;
@@ -187,13 +194,16 @@ class BitReader {
   
   /**
    * Reads the given number of bits from the stream.
-   * @param numBits {number}
+   * @param numBits {number} Number of bits to read. Max=32
    * @return {number}
    */
   read(numBits) {
     numBits &= 0xff;
-    if(numBits < 1 || numBits > 8)
+    if(numBits < 1 || numBits > 32)
       throw new Error(`Illegal numBits: ${numBits}`);
+    
+    if(numBits > 8)
+      return ((this.read(8) << (numBits - 8)) | this.read(numBits - 8));
     
     if(numBits > this.getRemainingBits())
       throw new Error(`End of stream. Requested ${numBits} but remaining bits is ${this.getRemainingBits()}`);
@@ -277,8 +287,44 @@ $(function() {
     maxFilterId: 0,
     filters: null,
     idleTimer: null,
-    rb: loadResourceBundle()
+    rb: loadResourceBundle(),
+    
+    permalinkFields: {
+      endOfFile:     { marker: 0b00000, type: 'flag' },
+      type:          { marker: 0b00001, type: 'number', numBits: 3 },
+      append:        { marker: 0b00010, type: 'string' },
+      caseOption:    { marker: 0b00011, type: 'enum', numBits: 3, map: {upper: 0b000, lower: 0b001, title: 0b010} },
+      caseSensitive: { marker: 0b00100, type: 'boolean' },
+      //enabled:       { marker: 0b00101, type: 'boolean' },
+      find:          { marker: 0b00110, type: 'string' },
+      ignoreBlanks:  { marker: 0b00111, type: 'boolean' },
+      invert:        { marker: 0b01000, type: 'boolean' },
+      onlyMatched:   { marker: 0b01001, type: 'boolean' },
+      options:       { marker: 0b01010, type: 'string' },
+      prepend:       { marker: 0b01011, type: 'string' },
+      regex:         { marker: 0b01100, type: 'string' },
+      removeDupes:   { marker: 0b01101, type: 'boolean' },
+      replace:       { marker: 0b01110, type: 'string' },
+      replacement:   { marker: 0b01111, type: 'string' },
+      reverse:       { marker: 0b10000, type: 'boolean' },
+    },
   };
+  Object.keys(_G.permalinkFields).forEach(key => {
+    const field = _G.permalinkFields[key];
+    if(field.type === 'enum')
+      field.mapReverse = Object.keys(field.map).reduce((revMap, mapKey) => {
+        revMap[field.map[mapKey]] = mapKey
+        return revMap;
+      }, {});
+  })
+  _G.permalinkFieldsReverse = Object.keys(_G.permalinkFields).reduce(
+    (map, key) => {
+      const field = _G.permalinkFields[key];
+      map[field.marker] = {...field, key};
+      return map;
+    },
+    {}
+  )
   
   document.title = _G.rb.pageTitle;
   $('#addFilterLabel').text(_G.rb.addFilter);
@@ -301,7 +347,7 @@ $(function() {
   $('#filters').sortable({revert:100, helper:'clone', opacity: 0.75, handle: '.handle', axis: 'y', stop: updateFilters});
   
   try {
-    _G.filters = $.parseJSON(getUrlParam('filters'));
+    _G.filters = parsePermalink(getUrlParam('filters'));
   } catch (e) {}
   
   if(!$.isArray(_G.filters)) {
@@ -552,7 +598,6 @@ $(function() {
    */
   function updateFilters()
   {
-    var oldPermalink = getPermalink();
     _G.filters = [];
     $('#filters>.filter').each(function() {
       var id = this.id.substr(this.id.lastIndexOf('_') + 1);
@@ -607,11 +652,9 @@ $(function() {
       }
     });
     
-    var newPermalink = getPermalink();
-    if(oldPermalink != newPermalink) {
-      $('#permalink').attr('href', newPermalink);
-      setIdleTimer();
-    }
+    $('#permalink').attr('href', getPermalink());
+    setIdleTimer();
+    
     applyFilters();
   }
   
@@ -748,12 +791,130 @@ $(function() {
     }
   }
   
-  
   /**
    * Returns a properly escaped/encoded permalink to the current filters.
    */
   function getPermalink() {
-    return '?filters=' + encodeURIComponent(JSON.stringify(_G.filters));
+    //legacy ("v1") code:
+    //return '?filters=' + encodeURIComponent(JSON.stringify(_G.filters));
+    
+    const writer = new BitWriter();
+    for(const filter of _G.filters) {
+      //new filter always starts with type field followed by enabled marker
+      writer.write(5, _G.permalinkFields.type.marker);
+      writer.write(_G.permalinkFields.type.numBits, filter.type);
+      writer.write(1, filter.enabled);
+      
+      //Loop through fields, write value to buffer
+      for(const field of Object.keys(filter)) {
+        //No need to preserve the id field
+        if(field === 'id' || field === 'type' || field === 'enabled')
+          continue;
+        
+        const fieldDef = _G.permalinkFields[field];
+        if(!fieldDef) {
+          console.error(`Unknown field: ${field}`);
+          continue;
+        }
+        
+        if(fieldDef.type === 'number') {
+          writer.write(5, fieldDef.marker);
+          writer.write(fieldDef.numBits, filter[field]);
+        }
+        else if(fieldDef.type === 'enum') {
+          writer.write(5, fieldDef.marker);
+          if(fieldDef.map[filter[field]] === undefined)
+            console.error(`value not in map: ${filter[field]}`);
+          writer.write(fieldDef.numBits, fieldDef.map[filter[field]]);
+        }
+        else if(fieldDef.type === 'boolean') {
+          writer.write(5, fieldDef.marker);
+          writer.write(1, filter[field]);
+        }
+        else if(fieldDef.type === 'string') {
+          const utf8Bytes = new TextEncoder().encode(filter[field]);
+          if(utf8Bytes.length >= (1 << 14))
+            throw new Error(`String exceeds maximum length ${1<<14}`);
+          
+          writer.write(5, fieldDef.marker);
+          
+          //String format:
+          // 1-bit flag, 0=short string (followed by 5-bit length), 1=long string (followed by 14-bit length)
+          // length (numBits determined by above logic)
+          // utf-8 bytes
+          const isLongString = utf8Bytes.length >= (1 << 5);
+          writer.write(1, isLongString);
+          writer.write(isLongString ? 14 : 5, utf8Bytes.length);
+          utf8Bytes.forEach(b => writer.write(8, b));
+        }
+        else {
+          console.error('unknown field type: ' + fieldDef.type);
+        }
+      }
+    }
+    
+    return '?filters=v2.' + (new Base64Url().encode(writer.getBytes()));
+  }
+  
+  function parsePermalink(permalink) {
+    if(!permalink)
+      return undefined;
+    
+    if(permalink.startsWith('v2.')) {
+      const bytes = new Base64Url().decode(permalink.replace(/^v2./, ''));
+      const reader = new BitReader(bytes);
+      const filters = [];
+      let filter = null;
+      
+      while(reader.getRemainingBits() >= 5) {
+        const marker = reader.read(5);
+        const fieldDef = _G.permalinkFieldsReverse[marker];
+        if(!fieldDef) {
+          throw new Error(`No fieldDef for marker ${marker}`);
+        }
+        
+        if(fieldDef.key === 'endOfFile') {
+          if(filter)
+            filters.push(filter);
+          break;
+        }
+        else if (fieldDef.key === 'type') {
+          if(filter)
+            filters.push(filter);
+          
+          filter = {};
+          filter.type = reader.read(fieldDef.numBits);
+          filter.enabled = !!reader.read(1);
+        }
+        else if(fieldDef.type === 'number') {
+          filter[fieldDef.key] = reader.read(fieldDef.numBits);
+        }
+        else if(fieldDef.type === 'boolean') {
+          filter[fieldDef.key] = !!reader.read(1);
+        }
+        else if(fieldDef.type === 'enum') {
+          filter[fieldDef.key] = fieldDef.mapReverse[reader.read(fieldDef.numBits)]
+        }
+        else if(fieldDef.type === 'string') {
+          const isLongString = !!reader.read(1);
+          const length = reader.read(isLongString ? 14 : 5);
+          const utf8Bytes = [];
+          for(let i = 0; i < length; i++)
+            utf8Bytes.push(reader.read(8));
+          
+          filter[fieldDef.key] = new TextDecoder("utf-8").decode(new Uint8Array(utf8Bytes));
+        }
+        else {
+          console.error(`Unknown fieldDef.type: ${fieldDef.type}`);
+        }
+        
+      }
+      
+      return filters;
+    }
+    
+    //legacy permalink - just url-encoded JSON
+    return $.parseJSON(permalink);
   }
   
   //---------------------------------------------------------------------------
