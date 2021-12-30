@@ -865,6 +865,7 @@ $(function() {
       const reader = new BitReader(bytes);
       const filters = [];
       let filter = null;
+      let id = 0;
       
       while(reader.getRemainingBits() >= 5) {
         const marker = reader.read(5);
@@ -883,6 +884,7 @@ $(function() {
             filters.push(filter);
           
           filter = {};
+          filter.id = ++id; 
           filter.type = reader.read(fieldDef.numBits);
           filter.enabled = !!reader.read(1);
         }
