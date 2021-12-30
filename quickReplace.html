@@ -298,8 +298,16 @@ class Permalink {
     replacement:   { marker: 0b01111, type: 'string' },
     reverse:       { marker: 0b10000, type: 'boolean' },
   };
+  static permalinkFieldsReverse = null;
   
-  static {
+  /**
+   * Workaround for Safari not supporting static initializer blocks yet.
+   */
+  static staticInitializer() {
+    //only run the static initializer the first time
+    if(Permalink.permalinkFieldsReverse !== null)
+      return;
+  
     Object.keys(Permalink.permalinkFields).forEach(key => {
       const field = Permalink.permalinkFields[key];
       if(field.type === 'enum')
@@ -324,6 +332,8 @@ class Permalink {
    * @return {string} url to permalink
    */
   static build(filters) {
+    Permalink.staticInitializer();
+    
     //legacy ("v1") code:
     //return '?filters=' + encodeURIComponent(JSON.stringify(filters));
     
@@ -391,6 +401,8 @@ class Permalink {
    * @return {any[]} parsed filters
    */
   static parse(permalink) {
+    Permalink.staticInitializer();
+    
     if(!permalink)
       return undefined;
     
