@@ -235,24 +235,28 @@ class BitReader {
 }
 
 class Base64Url {
-  base64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  map = [...this.base64chars];
-  revMap = this.map.reduce((m, c, i) => { m[c] = i; return m; }, {});
+  static base64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  static map = [...Base64Url.base64chars];
+  static revMap = Base64Url.map.reduce((m, c, i) => { m[c] = i; return m; }, {});
+  
+  constructor() {
+    throw new Error('Cannot instantiate Base64Url');
+  }
   
   /**
    * Encodes an array of bytes in base64-url encoding, with no trailing characters.
    * @param bytes {number[]}
    * @return {string}
    */
-  encode(bytes) {
+  static encode(bytes) {
     const bitReader = new BitReader(bytes);
     let encoded = '';
     while(bitReader.getRemainingBits() >= 6)
-      encoded += this.map[bitReader.read(6)];
+      encoded += Base64Url.map[bitReader.read(6)];
     
     const finalBits = bitReader.getRemainingBits();
     if(finalBits > 0)
-      encoded += this.map[bitReader.read(finalBits) << (6 - finalBits)];
+      encoded += Base64Url.map[bitReader.read(finalBits) << (6 - finalBits)];
     
     return encoded;
   }
@@ -262,13 +266,13 @@ class Base64Url {
    * @param encoded {string}
    * @return {number[]}
    */
-  decode(encoded) {
+  static decode(encoded) {
     if('string' !== typeof encoded || /[^a-zA-Z0-9\-_]/.test(encoded))
       throw new Error(`Not a valid Base64Url string: ${encoded}`);
     
     const bitWriter = new BitWriter();
     for(let c of encoded)
-      bitWriter.write(6, this.revMap[c])
+      bitWriter.write(6, Base64Url.revMap[c])
     
     return bitWriter.getBytes();
   }
@@ -853,7 +857,7 @@ $(function() {
       }
     }
     
-    return '?filters=v2.' + (new Base64Url().encode(writer.getBytes()));
+    return '?filters=v2.' + (Base64Url.encode(writer.getBytes()));
   }
   
   function parsePermalink(permalink) {
@@ -861,7 +865,7 @@ $(function() {
       return undefined;
     
     if(permalink.startsWith('v2.')) {
-      const bytes = new Base64Url().decode(permalink.replace(/^v2./, ''));
+      const bytes = Base64Url.decode(permalink.replace(/^v2./, ''));
       const reader = new BitReader(bytes);
       const filters = [];
       let filter = null;
