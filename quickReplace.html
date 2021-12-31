@@ -555,6 +555,13 @@ $(function() {
   });
   
   //hack because webfont load has issues when running from localhost
+  //Note to self: purely CSS based layout would avoid this issue, but when I tried to use CSS flex-grid
+  //the drag/drop was not working. Will need more work later...
+  setTimeout(resizeInputs, 0);
+  setTimeout(resizeInputs, 100);
+  setTimeout(resizeInputs, 200);
+  setTimeout(resizeInputs, 300);
+  setTimeout(resizeInputs, 400);
   setTimeout(resizeInputs, 500);
   
   //Select all text in output when it gets focus
