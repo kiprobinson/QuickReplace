@@ -107,6 +107,15 @@ a, a:visited {
 <script type="text/javascript">
 //<![CDATA[ 
 
+const FILTER_TYPES = {
+  PREPEND: 0,
+  SIMPLE: 1,
+  REGEX: 2,
+  GREP: 3,
+  SORT: 4,
+  CASE: 5,
+}
+
 class BitWriter {
   bytes = [];
   offset = 0;
@@ -279,52 +288,44 @@ class Base64Url {
 }
 
 class Permalink {
-  static permalinkFields = {
-    endOfFile:     { marker: 0b00000, type: 'flag' },
-    type:          { marker: 0b00001, type: 'number', numBits: 3 },
-    append:        { marker: 0b00010, type: 'string' },
-    caseOption:    { marker: 0b00011, type: 'enum', numBits: 3, map: {upper: 0b000, lower: 0b001, title: 0b010} },
-    caseSensitive: { marker: 0b00100, type: 'boolean' },
-    //enabled:       { marker: 0b00101, type: 'boolean' },
-    find:          { marker: 0b00110, type: 'string' },
-    ignoreBlanks:  { marker: 0b00111, type: 'boolean' },
-    invert:        { marker: 0b01000, type: 'boolean' },
-    onlyMatched:   { marker: 0b01001, type: 'boolean' },
-    options:       { marker: 0b01010, type: 'string' },
-    prepend:       { marker: 0b01011, type: 'string' },
-    regex:         { marker: 0b01100, type: 'string' },
-    removeDupes:   { marker: 0b01101, type: 'boolean' },
-    replace:       { marker: 0b01110, type: 'string' },
-    replacement:   { marker: 0b01111, type: 'string' },
-    reverse:       { marker: 0b10000, type: 'boolean' },
+  //Markers 000 and 001 are for these specific markers.
+  //Markers 010-111 are for filter-specific fields (defined in fieldDefsByType)
+  static endOfFileMarker = 0b000;
+  static filterStartMarker = 0b001;
+  
+  static fieldDefsByType = {
+    [FILTER_TYPES.PREPEND]: {
+      append:        { marker: 0b010, type: 'string' },
+      ignoreBlanks:  { marker: 0b011, type: 'boolean' },
+      prepend:       { marker: 0b100, type: 'string' },
+    }, 
+    [FILTER_TYPES.SIMPLE]: {
+      find:          { marker: 0b010, type: 'string' },
+      options:       { marker: 0b011, type: 'string' },
+      replace:       { marker: 0b100, type: 'string' },
+    }, 
+    [FILTER_TYPES.REGEX]: {
+      options:       { marker: 0b010, type: 'string' },
+      regex:         { marker: 0b011, type: 'string' },
+      replacement:   { marker: 0b100, type: 'string' },
+    }, 
+    [FILTER_TYPES.GREP]: {
+      caseSensitive: { marker: 0b010, type: 'boolean' },
+      invert:        { marker: 0b011, type: 'boolean' },
+      onlyMatched:   { marker: 0b100, type: 'boolean' },
+      regex:         { marker: 0b101, type: 'string' },
+    }, 
+    [FILTER_TYPES.SORT]: {
+      caseSensitive: { marker: 0b010, type: 'boolean' },
+      removeDupes:   { marker: 0b011, type: 'boolean' },
+      reverse:       { marker: 0b100, type: 'boolean' },
+    }, 
+    [FILTER_TYPES.CASE]: {
+      caseOption:    { marker: 0b010, type: 'enum', numBits: 3, map: {upper: 0b000, lower: 0b001, title: 0b010} },
+      options:       { marker: 0b011, type: 'string' },
+      regex:         { marker: 0b100, type: 'string' },
+    }, 
   };
-  static permalinkFieldsReverse = null;
-  
-  /**
-   * Workaround for Safari not supporting static initializer blocks yet.
-   */
-  static staticInitializer() {
-    //only run the static initializer the first time
-    if(Permalink.permalinkFieldsReverse !== null)
-      return;
-  
-    Object.keys(Permalink.permalinkFields).forEach(key => {
-      const field = Permalink.permalinkFields[key];
-      if(field.type === 'enum')
-        field.mapReverse = Object.keys(field.map).reduce((revMap, mapKey) => {
-          revMap[field.map[mapKey]] = mapKey
-          return revMap;
-        }, {});
-    });
-    Permalink.permalinkFieldsReverse = Object.keys(Permalink.permalinkFields).reduce(
-      (map, key) => {
-        const field = Permalink.permalinkFields[key];
-        map[field.marker] = {...field, key};
-        return map;
-      },
-      {}
-    );
-  }
   
   /**
    * Returns a properly escaped/encoded permalink to the current filters.
@@ -332,42 +333,48 @@ class Permalink {
    * @return {string} url to permalink
    */
   static build(filters) {
-    Permalink.staticInitializer();
-    
     //legacy ("v1") code:
     //return '?filters=' + encodeURIComponent(JSON.stringify(filters));
     
     const writer = new BitWriter();
     for(const filter of filters) {
-      //new filter always starts with type field followed by enabled marker
-      writer.write(5, Permalink.permalinkFields.type.marker);
-      writer.write(Permalink.permalinkFields.type.numBits, filter.type);
+      //new filter always starts with start marker (except first filter),
+      //followed by type value, followed by enabled flag
+      if(writer.getNumBits() > 0)
+        writer.write(3, Permalink.filterStartMarker);
+      writer.write(3, filter.type);
       writer.write(1, filter.enabled);
       
-      //Loop through fields, write value to buffer
+      const fieldDefs = Permalink.fieldDefsByType[filter.type];
+      if(!fieldDefs) {
+        console.error(`Unknown field type: ${filter.type}`);
+        continue;
+      }
+      
+      //Next we loop through fields, writing field marker then field value
       for(const field of Object.keys(filter)) {
-        //No need to preserve the id field
+        //No need to preserve the id field, and type/enabled are handled above
         if(field === 'id' || field === 'type' || field === 'enabled')
           continue;
         
-        const fieldDef = Permalink.permalinkFields[field];
+        const fieldDef = fieldDefs[field];
         if(!fieldDef) {
           console.error(`Unknown field: ${field}`);
           continue;
         }
         
         if(fieldDef.type === 'number') {
-          writer.write(5, fieldDef.marker);
+          writer.write(3, fieldDef.marker);
           writer.write(fieldDef.numBits, filter[field]);
         }
         else if(fieldDef.type === 'enum') {
-          writer.write(5, fieldDef.marker);
+          writer.write(3, fieldDef.marker);
           if(fieldDef.map[filter[field]] === undefined)
             console.error(`value not in map: ${filter[field]}`);
           writer.write(fieldDef.numBits, fieldDef.map[filter[field]]);
         }
         else if(fieldDef.type === 'boolean') {
-          writer.write(5, fieldDef.marker);
+          writer.write(3, fieldDef.marker);
           writer.write(1, filter[field]);
         }
         else if(fieldDef.type === 'string') {
@@ -375,10 +382,10 @@ class Permalink {
           if(utf8Bytes.length >= (1 << 14))
             throw new Error(`String exceeds maximum length ${1<<14}`);
           
-          writer.write(5, fieldDef.marker);
+          writer.write(3, fieldDef.marker);
           
           //String format:
-          // 1-bit flag, 0=short string (followed by 5-bit length), 1=long string (followed by 14-bit length)
+          // 1-bit flag: 0=short string (followed by 5-bit length), 1=long string (followed by 14-bit length)
           // length (numBits determined by above logic)
           // utf-8 bytes
           const isLongString = utf8Bytes.length >= (1 << 5);
@@ -401,47 +408,56 @@ class Permalink {
    * @return {any[]} parsed filters
    */
   static parse(permalink) {
-    Permalink.staticInitializer();
-    
     if(!permalink)
       return undefined;
     
     if(permalink.startsWith('v2.')) {
       const bytes = Base64Url.decode(permalink.replace(/^v2./, ''));
+      if(bytes.length <= 0)
+        return null;
       const reader = new BitReader(bytes);
       const filters = [];
-      let filter = null;
       let id = 0;
+      let filter = {
+        id: ++id,
+        type: reader.read(3),
+        enabled: !!reader.read(1),
+      };
+      let fieldDefs = Permalink.fieldDefsByType[filter.type];
       
-      while(reader.getRemainingBits() >= 5) {
-        const marker = reader.read(5);
-        const fieldDef = Permalink.permalinkFieldsReverse[marker];
+      while(reader.getRemainingBits() >= 3) {
+        const marker = reader.read(3);
+        if(marker === Permalink.endOfFileMarker)
+          break;
+        
+        if (marker === Permalink.filterStartMarker) {
+          filters.push(filter);
+          
+          filter = {
+            id: ++id,
+            type: reader.read(3),
+            enabled: !!reader.read(1),
+          };
+          fieldDefs = Permalink.fieldDefsByType[filter.type];
+          continue;
+        }
+        
+        const fieldDefKey = Object.keys(fieldDefs).find(k => fieldDefs[k].marker === marker);
+        const fieldDef = fieldDefKey ? fieldDefs[fieldDefKey] : null;
         if(!fieldDef) {
           throw new Error(`No fieldDef for marker ${marker}`);
         }
         
-        if(fieldDef.key === 'endOfFile') {
-          if(filter)
-            filters.push(filter);
-          break;
-        }
-        else if (fieldDef.key === 'type') {
-          if(filter)
-            filters.push(filter);
-          
-          filter = {};
-          filter.id = ++id; 
-          filter.type = reader.read(fieldDef.numBits);
-          filter.enabled = !!reader.read(1);
-        }
-        else if(fieldDef.type === 'number') {
-          filter[fieldDef.key] = reader.read(fieldDef.numBits);
+        
+        if(fieldDef.type === 'number') {
+          filter[fieldDefKey] = reader.read(fieldDef.numBits);
         }
         else if(fieldDef.type === 'boolean') {
-          filter[fieldDef.key] = !!reader.read(1);
+          filter[fieldDefKey] = !!reader.read(1);
         }
         else if(fieldDef.type === 'enum') {
-          filter[fieldDef.key] = fieldDef.mapReverse[reader.read(fieldDef.numBits)]
+          const enumVal = reader.read(fieldDef.numBits);
+          filter[fieldDefKey] = Object.keys(fieldDef.map).find(k => fieldDef.map[k] === enumVal);
         }
         else if(fieldDef.type === 'string') {
           const isLongString = !!reader.read(1);
@@ -450,7 +466,7 @@ class Permalink {
           for(let i = 0; i < length; i++)
             utf8Bytes.push(reader.read(8));
           
-          filter[fieldDef.key] = new TextDecoder("utf-8").decode(new Uint8Array(utf8Bytes));
+          filter[fieldDefKey] = new TextDecoder("utf-8").decode(new Uint8Array(utf8Bytes));
         }
         else {
           console.error(`Unknown fieldDef.type: ${fieldDef.type}`);
@@ -458,24 +474,21 @@ class Permalink {
         
       }
       
+      //add the final filter from the loop
+      filters.push(filter);
+      
       return filters;
     }
     
     //legacy permalink - just url-encoded JSON
     return $.parseJSON(permalink);
   }
-  
 }
 
 $(function() {
   //globals
   var _G = {
-    PREPEND: 0,
-    SIMPLE: 1,
-    REGEX: 2,
-    GREP: 3,
-    SORT: 4,
-    CASE: 5,
+    ...FILTER_TYPES,
     maxFilterId: 0,
     filters: null,
     idleTimer: null,
@@ -504,7 +517,9 @@ $(function() {
   
   try {
     _G.filters = Permalink.parse(getUrlParam('filters'));
-  } catch (e) {}
+  } catch (e) {
+    console.error(e);
+  }
   
   if(!$.isArray(_G.filters)) {
     _G.filters = [
