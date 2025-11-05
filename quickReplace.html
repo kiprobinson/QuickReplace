@@ -101,6 +101,16 @@ td {
 a, a:visited {
   color: blue;
 }
+#copy-spinner {
+  width: 13px;
+  height: 13px;
+  margin-left: 2px;
+  vertical-align: middle;
+  display: none;
+}
+#copy-success {
+  display: none;
+}
 </style>
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
@@ -596,10 +606,25 @@ $(function() {
     a.remove();
   });
   
-  $('#copy').on('click', function(e) {
+  $('#copy').on('click', async (e) => {
     e.preventDefault();
+    $('#copy-spinner').show();
     const text = $('#output').val();
-    navigator.clipboard.writeText(text).then(() => {}, (err) => console.error('copy error! ' + err));
+    try {
+      // copy usually happens way too fast, it looks weird. show the spinner for at least a little time
+      await Promise.all([
+        sleep(250),
+        navigator.clipboard.writeText(text),
+      ]);
+      $('#copy-spinner').hide();
+      $('#copy-success').show();
+      await sleep(800);
+      $('#copy-success').fadeOut(800);
+    }
+    catch (err) {
+      $('#copy-spinner').hide();
+      console.error('copy error! ' + err);
+    }
   });
   
   //Utilize history API if available
@@ -1065,6 +1090,10 @@ $(function() {
     return str.replace(/[&<>"']/g, function(m) { return map[m]; });
   }
   
+  async function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  
   function supportsHistoryApi() {
     //disabling this for now... seems to be buggy with backslashes in the url...
     return false;
@@ -1311,6 +1340,8 @@ $(function() {
   | <a href="#" id="permalink">Permalink</a>
   | <a href="#" download="replaced.txt" id="download">Download</a>
   | <a href="#" id="copy">Copy</a>
+  <svg id="copy-spinner" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"><animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/></path></svg>
+  <span id="copy-success">Copied! &check;</span>
 </div>
 <textarea id="input" wrap="off"></textarea>
 <input type="submit" id="copyUp" value="&uarr; Move &uarr;" />
